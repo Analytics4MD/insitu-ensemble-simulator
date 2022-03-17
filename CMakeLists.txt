@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.2)
 message(STATUS "Cmake version ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION}.${CMAKE_PATCH_VERSION}")
 
-project(my-wrench-simulator)
+project(insitu-ensemble-simulator)
 
 add_definitions("-Wall -Wno-unused-variable -Wno-unused-private-field")
 
@@ -26,14 +26,14 @@ set(SOURCE_FILES
         )
 
 # generating the executable
-add_executable(my-wrench-simulator ${SOURCE_FILES})
+add_executable(insitu-ensemble-simulator ${SOURCE_FILES})
 
 # PugiXML, needed if using the WRENCH_WFCOMMONS_WORKFLOW_PARSER_LIBRARY
 #find_library(PUGIXML_LIBRARY NAMES pugixml)
 
 # Specify libraries to link
 if (ENABLE_BATSCHED)
-    target_link_libraries(my-wrench-simulator
+    target_link_libraries(insitu-ensemble-simulator
             ${WRENCH_LIBRARY}
             ${SimGrid_LIBRARY}
             ${Boost_LIBRARIES}
@@ -41,7 +41,7 @@ if (ENABLE_BATSCHED)
 #            ${PUGIXML_LIBRARY}
             -lzmq)
 else()
-    target_link_libraries(my-wrench-simulator
+    target_link_libraries(insitu-ensemble-simulator
             ${WRENCH_LIBRARY}
             ${SimGrid_LIBRARY}
             ${Boost_LIBRARIES}
@@ -50,4 +50,4 @@ else()
             )
 endif()
 
-install(TARGETS my-wrench-simulator DESTINATION bin)
+install(TARGETS insitu-ensemble-simulator DESTINATION bin)
