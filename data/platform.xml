@@ -8,30 +8,20 @@
         <host id="UserHost" speed="10Gf" core="1">
         </host>
 
-        <!-- The host on which the WMS will run -->
-        <host id="StorageHost" speed="10Gf" core="1">
-            <disk id="hard_drive" read_bw="100MBps" write_bw="100MBps">
+        <!-- The compute host -->
+        <host id="ComputeHost" speed="10Gf" core="10">
+            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
-        </host>
-
-        <!-- The host on which the bare-metal compute service will run -->
-        <host id="ComputeHost" speed="1Gf" core="10">
             <prop id="ram" value="16GB" />
-       </host>
+        </host>
 
         <!-- A network link that connects both hosts -->
         <link id="shared_network" bandwidth="50MBps" latency="20us"/>
 
         <!-- Network routes -->
         <route src="UserHost" dst="ComputeHost">
-            <link_ctn id="shared_network"/>
-        </route>
-        <route src="UserHost" dst="StorageHost">
-            <link_ctn id="shared_network"/>
-        </route>
-        <route src="StorageHost" dst="ComputeHost">
             <link_ctn id="shared_network"/>
         </route>
 

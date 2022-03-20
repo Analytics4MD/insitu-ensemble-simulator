@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
 
     /* Instantiate a storage service on the platform */
     auto storage_service = simulation->add(new wrench::SimpleStorageService(
-            "StorageHost", {"/"}, {}, {}));
+            "ComputeHost", {"/"}, {}, {}));
 
     /* Instantiate a bare-metal compute service on the platform */
     auto baremetal_service = simulation->add(new wrench::BareMetalComputeService(
