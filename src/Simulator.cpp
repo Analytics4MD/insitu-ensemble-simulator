@@ -37,28 +37,46 @@ int main(int argc, char **argv) {
     simulation->init(&argc, argv);
 
     /* Parsing of the command-line arguments */
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <xml platform file> [--log=controller.threshold=info | --wrench-full-log]" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <number of compute nodes> <xml platform file> [--log=controller.threshold=info | --wrench-full-log]" << std::endl;
         exit(1);
     }
 
     /* Instantiating the simulated platform */
-    simulation->instantiatePlatform(argv[1]);
+    std::cerr << "Instantiating simulated platform..." << std::endl;
+    simulation->instantiatePlatform(argv[2]);
 
-    /* Instantiate a storage service on the platform */
-    auto storage_service = simulation->add(new wrench::SimpleStorageService(
-            "ComputeHost", {"/"}, {}, {}));
 
-    /* Instantiate a bare-metal compute service on the platform */
-    auto baremetal_service = simulation->add(new wrench::BareMetalComputeService(
-            "ComputeHost", {"ComputeHost"}, "", {}, {}));
+    int num_nodes = std::atoi(argv[1]);
+
+    std::vector<std::shared_ptr<wrench::BareMetalComputeService>> compute_services;
+    std::vector<std::shared_ptr<wrench::SimpleStorageService>> storage_services;
+    for (int i = 1; i <= num_nodes; i++) {
+        std::string host_name = "ComputeHost" + std::to_string(i);
+        /* Instantiate a storage service on the platform */            
+        auto storage_service = simulation->add(new wrench::SimpleStorageService(
+            host_name, {"/"}, {}, {}));
+        storage_services.push_back(storage_service);
+
+        /* Instantiate a bare-metal compute service on the platform */
+        auto compute_service = simulation->add(new wrench::BareMetalComputeService(
+            host_name, {host_name}, "", {}, {}));
+        compute_services.push_back(compute_service);
+    }
 
     /* Instantiate an execution controller */
     auto wms = simulation->add(
-            new wrench::Controller(baremetal_service, storage_service, "UserHost"));
+        new wrench::Controller(compute_services, storage_services, "UserHost"));
 
     /* Launch the simulation */
-    simulation->launch();
+    std::cerr << "Launching the Simulation..." << std::endl;
+    try {
+        simulation->launch();
+    } catch (std::runtime_error &e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        return 1;
+    }
+    std::cerr << "Simulation done!" << std::endl;
 
     return 0;
 }

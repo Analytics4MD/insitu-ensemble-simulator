@@ -24,21 +24,22 @@ namespace wrench {
     public:
         // Constructor
         Controller(
-                  const std::shared_ptr<BareMetalComputeService> &bare_metal_compute_service,
-                  const std::shared_ptr<SimpleStorageService> &storage_service,
+                  const std::vector<std::shared_ptr<BareMetalComputeService>> &compute_services,
+                  const std::vector<std::shared_ptr<SimpleStorageService>> &storage_services,
                   const std::string &hostname);
 
     protected:
 
-        // Overridden method
+        // Overridden methods
         void processEventCompoundJobCompletion(std::shared_ptr<CompoundJobCompletedEvent>) override;
+        void processEventCompoundJobFailure(std::shared_ptr<CompoundJobFailedEvent>) override;
 
     private:
         // main() method of the WMS
         int main() override;
 
-        const std::shared_ptr<BareMetalComputeService> bare_metal_compute_service;
-        const std::shared_ptr<SimpleStorageService> storage_service;
+        const std::vector<std::shared_ptr<BareMetalComputeService>> compute_services;
+        const std::vector<std::shared_ptr<SimpleStorageService>> storage_services;
 
     };
 }
