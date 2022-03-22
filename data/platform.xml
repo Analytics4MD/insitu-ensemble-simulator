@@ -23,6 +23,20 @@
             </disk>
             <prop id="ram" value="16GB" />
         </host>
+        <host id="ComputeHost3" speed="10Gf" core="10">
+            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
+                <prop id="size" value="5000GiB"/>
+                <prop id="mount" value="/"/>
+            </disk>
+            <prop id="ram" value="16GB" />
+        </host>
+        <host id="ComputeHost4" speed="10Gf" core="10">
+            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
+                <prop id="size" value="5000GiB"/>
+                <prop id="mount" value="/"/>
+            </disk>
+            <prop id="ram" value="16GB" />
+        </host>
 
         <!-- A network link that connects both hosts -->
         <link id="shared_network" bandwidth="50MBps" latency="20us"/>
@@ -30,7 +44,14 @@
         <!-- Network routes -->
         <route src="UserHost" dst="ComputeHost1"> <link_ctn id="shared_network"/> </route>
         <route src="UserHost" dst="ComputeHost2"> <link_ctn id="shared_network"/> </route>
+        <route src="UserHost" dst="ComputeHost3"> <link_ctn id="shared_network"/> </route>
+        <route src="UserHost" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
         <route src="ComputeHost1" dst="ComputeHost2"> <link_ctn id="shared_network"/> </route>
+        <route src="ComputeHost1" dst="ComputeHost3"> <link_ctn id="shared_network"/> </route>
+        <route src="ComputeHost1" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
+        <route src="ComputeHost2" dst="ComputeHost3"> <link_ctn id="shared_network"/> </route>
+        <route src="ComputeHost2" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
+        <route src="ComputeHost3" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
 
     </zone>
 </platform>
