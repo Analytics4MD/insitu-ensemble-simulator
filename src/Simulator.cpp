@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
 
     int num_nodes = std::atoi(argv[1]);
 
+    std::cerr << "Instantiating compute and storage services..." << std::endl;
     std::vector<std::shared_ptr<wrench::BareMetalComputeService>> compute_services;
     std::vector<std::shared_ptr<wrench::SimpleStorageService>> storage_services;
     for (int i = 1; i <= num_nodes; i++) {
@@ -65,6 +66,7 @@ int main(int argc, char **argv) {
     }
 
     /* Instantiate an execution controller */
+    std::cerr << "Instantiating execution controller..." << std::endl;
     auto wms = simulation->add(
         new wrench::Controller(compute_services, storage_services, "UserHost"));
 

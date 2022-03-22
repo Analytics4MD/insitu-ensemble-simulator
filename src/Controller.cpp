@@ -51,6 +51,9 @@ namespace wrench {
         WRENCH_INFO("Controller starting");
 
         /* Input parameters */
+        int num_simulations = 1;
+        std::vector<int> num_analyses_per_simulation = {1};
+        std::vector<std::tuple<int, int>> cosched_allocations{{0,1}};
         int num_nodes = 2;
         double data_size = 1 * GBYTE;
         double compute_flops = 100 * GFLOP;
@@ -63,34 +66,68 @@ namespace wrench {
         /* Create a job manager so that we can create/submit jobs */
         auto job_manager = this->createJobManager();
 
+        /* Instantiate a batch compute service, and add it to the simulation.
+         * This means that actions running on this service will access data files only from remote storage services. */
         std::vector<std::shared_ptr<wrench::CompoundJob>> jobs;
-        for (int i = 1; i <= num_nodes; i++) {
-            auto job = job_manager->createCompoundJob("job_" + std::to_string(i));
-            WRENCH_INFO("Creating a compound job %s with a file read action followed by a compute action", job->getName().c_str());
+        for (int i = 1; i <= num_simulations; i++) {
+            int simulation_allocation = 0;
+            std::vector<std::shared_ptr<wrench::CompoundJob>> data_write_jobs;
+            int simulation_node_start = std::get<0>(cosched_allocations[simulation_allocation]);
+            int simulation_node_end = std::get<1>(cosched_allocations[simulation_allocation]);
+            int simulation_num_nodes = simulation_node_end - simulation_node_start + 1;
+            double simulation_data_size = data_size / simulation_num_nodes;
+            for (int node = simulation_node_start; node <= simulation_node_end; node++) {
+                auto simulation_storage = this->storage_services[node];
+                auto simulation_compute = this->compute_services[node];
 
-            /* Create a input, output data */        
-            auto input_data = wrench::Simulation::addFile("input_data_" + std::to_string(i), data_size);
-            auto output_data = wrench::Simulation::addFile("output_data_" + std::to_string(i), data_size);
-            this->storage_services[i-1]->createFile(input_data, wrench::FileLocation::LOCATION(this->storage_services[i-1]));
+                /* Computing stage */
+                // WRENCH_INFO("Creating a compound job %s with a file read action followed by a compute action", job->getName().c_str());
+                auto compute_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_compute_job_" + std::to_string(node));
+                compute_job->addComputeAction("compute", compute_flops, compute_mem, 1, 3, wrench::ParallelModel::AMDAHL(0.8));            
+                job_manager->submitJob(compute_job, simulation_compute);
 
-            /* Writing stage */
-            auto data_write = job->addFileWriteAction("data_write_" + std::to_string(i), output_data, wrench::FileLocation::LOCATION(this->storage_services[i-1]));
-            /* Computing stage */
-            auto compute = job->addComputeAction("compute_" + std::to_string(i), compute_flops, compute_mem, 1, 3, wrench::ParallelModel::AMDAHL(0.8));
-            /* Reading stage */
-            auto data_read = job->addFileReadAction("data_read_" + std::to_string(i), input_data, wrench::FileLocation::LOCATION(this->storage_services[i-1]));
-            /* Analyzing stage */
-            auto analysis = job->addComputeAction("analysis_" + std::to_string(i), analysis_flops, analysis_mem, 1, 3, wrench::ParallelModel::AMDAHL(0.8));
-            /* Dependencies among fine-grained stages */
-            job->addActionDependency(compute, data_write);
-            job->addActionDependency(data_write, data_read);
-            job->addActionDependency(data_read, analysis);
+                /* Writing stage */
+                auto output_data = wrench::Simulation::addFile("member_" + std::to_string(i) + "_output_data_" + std::to_string(node), simulation_data_size);
+                auto data_write_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_data_write_job_" + std::to_string(node));
+                data_write_job->addFileWriteAction("data_write", output_data, wrench::FileLocation::LOCATION(simulation_storage));
+                data_write_job->addParentJob(compute_job);
+                job_manager->submitJob(data_write_job, simulation_compute);
+                data_write_jobs.push_back(data_write_job);
+            }
+
+            for (int j = 1; j <= num_analyses_per_simulation[i-1]; j++) {
+                
+                int analysis_allocation = 0;
+                int analysis_node_start = std::get<0>(cosched_allocations[analysis_allocation]);
+                int analysis_node_end = std::get<1>(cosched_allocations[analysis_allocation]);
+                int analysis_num_nodes = (analysis_node_end - analysis_node_start + 1);
+                double analysis_data_size = data_size / analysis_num_nodes;
+                int analysis_storage_node = simulation_node_start;
+                for (int node = analysis_node_start; node <= analysis_node_end; node++) {
+                    auto analysis_storage = this->storage_services[analysis_storage_node];
+                    auto analysis_compute = this->compute_services[node];
+
+                    /* Reading stage */
+                    auto input_data = wrench::Simulation::addFile("member_" + std::to_string(i) + "_input_data_" + std::to_string(node), analysis_data_size);
+                    analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                    auto data_read_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_data_read_job_" + std::to_string(node));
+                    data_read_job->addFileReadAction("data_read", input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                    for (auto data_write_job : data_write_jobs) {
+                        data_read_job->addParentJob(data_write_job);
+                    }
+                    job_manager->submitJob(data_read_job, analysis_compute);
+
+                    /* Analyzing stage */
+                    auto analysis_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_analysis_job_" + std::to_string(node));
+                    analysis_job->addComputeAction("analysis", analysis_flops, analysis_mem, 1, 3, wrench::ParallelModel::AMDAHL(0.8));
+                    analysis_job->addParentJob(data_read_job);
+                    job_manager->submitJob(analysis_job, analysis_compute);
+
+                    analysis_storage_node++;
+                }
+            }
             
-            job_manager->submitJob(job, this->compute_services[i-1]);
-            WRENCH_INFO("Submitting job %s to the bare-metal compute service", job->getName().c_str());
-
-            jobs.push_back(job);
-
+            // WRENCH_INFO("Submitting job %s to the bare-metal compute service", job->getName().c_str());
         }
 
         /* Submite jobs */
@@ -99,7 +136,7 @@ namespace wrench {
         //     WRENCH_INFO("Submitting job %s to the bare-metal compute service", jobs[i-1]->getName().c_str());
         // }
 
-        for (int i = 1; i <= num_nodes; i++) {
+        for (int i = 1; i <= 8; i++) {
             WRENCH_INFO("Waiting for an execution event...");
             this->waitForAndProcessNextEvent();
         }
