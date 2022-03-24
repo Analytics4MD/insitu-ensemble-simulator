@@ -8,14 +8,6 @@ bandwidth: 460
 memory: 128
 # Computational power per core (GFLOPs)
 speed: 36.8
-
-allocations:
-    - alloc1:
-        nodes:
-        start:
-        end:
-    - alloc2:
-
 simulations:
     sim1:
         alloc: 
@@ -81,9 +73,8 @@ simulations:
                 alloc: 
                 mem: 
                 flop: 3
-
 non-co-scheduling:
     sim1: [ana1, ana3]
-    sim2: [ana4]
+    sim2: [ana4, ana1]
     sim3: [ana2, ana3]
 
