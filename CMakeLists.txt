@@ -14,9 +14,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/")
 find_package(WRENCH REQUIRED)
 find_package(SimGrid REQUIRED)
 find_package(Boost REQUIRED)
+find_package(YAMLCPP REQUIRED)
 
 # include directories
-include_directories(include/ /usr/local/include/ /opt/local/include/ ${WRENCH_INCLUDE_DIR} ${SimGrid_INCLUDE_DIR} ${Boost_INCLUDE_DIR})
+include_directories(include/ /usr/local/include/ /opt/local/include/ ${WRENCH_INCLUDE_DIR} ${SimGrid_INCLUDE_DIR} ${Boost_INCLUDE_DIR} ${YAMLCPP_INCLUDE_DIR})
 
 # source files
 set(SOURCE_FILES
@@ -37,6 +38,7 @@ if (ENABLE_BATSCHED)
             ${WRENCH_LIBRARY}
             ${SimGrid_LIBRARY}
             ${Boost_LIBRARIES}
+            ${YAMLCPP_LIBRARY}
 #            ${WRENCH_WFCOMMONS_WORKFLOW_PARSER_LIBRARY}
 #            ${PUGIXML_LIBRARY}
             -lzmq)
@@ -45,6 +47,7 @@ else()
             ${WRENCH_LIBRARY}
             ${SimGrid_LIBRARY}
             ${Boost_LIBRARIES}
+            ${YAMLCPP_LIBRARY}
 #            ${WRENCH_WFCOMMONS_WORKFLOW_PARSER_LIBRARY}
 #            ${PUGIXML_LIBRARY}
             )

@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <wrench-dev.h>
+#include <yaml-cpp/yaml.h>
 
 #include "Controller.h"
 
@@ -48,6 +49,13 @@ int main(int argc, char **argv) {
 
     int num_nodes = std::atoi(argv[1]);
     int num_steps = std::atoi(argv[2]);
+
+    YAML::Node config = YAML::LoadFile("config.yml");
+
+    //const std::string username = config["username"].as<std::string>();
+    //const std::string password = config["password"].as<std::string>();
+    
+    std::cout << config["username"].as<std::string>() << config["password"].as<std::string>();
 
     std::cerr << "Instantiating compute and storage services..." << std::endl;
     std::vector<std::shared_ptr<wrench::BareMetalComputeService>> compute_services;
