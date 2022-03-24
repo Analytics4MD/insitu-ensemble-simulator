@@ -4,6 +4,9 @@ from sympy import solveset, S, Eq
 from sympy.abc import x
 import signal
 
+def heuristic_round(number):
+    return round(number)
+
 if __name__ == "__main__":
     # Load yaml config file
     config_file = '../data/config.yml'
@@ -89,7 +92,7 @@ if __name__ == "__main__":
             ana_config['core'] = core
 
     # Heuristic to round n^{NC}
-    round_nc_nodes = nc_nodes
+    round_nc_nodes = heuristic_round(nc_nodes)
     
     c_nodes = nodes - round_nc_nodes
     print('Number of nodes for co-scheduling : {} '.format(c_nodes))
