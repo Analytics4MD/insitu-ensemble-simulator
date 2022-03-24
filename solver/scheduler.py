@@ -90,6 +90,7 @@ if __name__ == "__main__":
 
     # Heuristic to round n^{NC}
     round_nc_nodes = nc_nodes
+    
     c_nodes = nodes - round_nc_nodes
     print('Number of nodes for co-scheduling : {} '.format(c_nodes))
     
@@ -120,6 +121,10 @@ if __name__ == "__main__":
                 core = ana_config['time_seq'] * cores / numerator
                 ana_config['core'] = core
 
+    config['allocations']['sim0'] = {}
+    config['allocations']['sim0']['node'] = round_nc_nodes
+    config['allocations']['sim0']['start'] = start_node
+    config['allocations']['sim0']['end'] = start_node + round_nc_nodes
     # print(config['allocations'])
 
     # print(simulations_config)
