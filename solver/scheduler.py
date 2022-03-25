@@ -95,7 +95,8 @@ if __name__ == "__main__":
             ana_config['core'] = core
 
     # Heuristic to round n^{NC}
-    round_nc_nodes = heuristic_round(nc_nodes)
+    # round_nc_nodes = heuristic_round(nc_nodes)
+    round_nc_nodes = nc_nodes
     
     c_nodes = nodes - round_nc_nodes
     print('Number of nodes for co-scheduling : {} '.format(c_nodes))
@@ -130,11 +131,31 @@ if __name__ == "__main__":
                 core = ana_config['time_seq'] * cores / numerator
                 ana_config['core'] = core
 
+    # Need to fix start and end node when rounding heristic is finalized
     config['allocations']['sim0'] = {}
     config['allocations']['sim0']['node'] = round_nc_nodes
     config['allocations']['sim0']['start'] = start_node
     config['allocations']['sim0']['end'] = start_node + round_nc_nodes
     # print(config['allocations'])
+
+    # Execution time and makespan
+    makespan = float('-inf')
+    for sim in simulations_config:
+        time_s = simulations_config[sim]['time_seq'] / (config['allocations'][sim]['node'] * simulations_config[sim]['core'])
+        simulations_config[sim]['time'] = time_s
+        data_size = simulations_config[sim]['data']
+        if time_s > makespan:
+            makespan = time_s
+        for ana in simulations_config[sim]['coupling']:
+            ana_config = simulations_config[sim]['coupling'][ana]
+            ana_alloc = ana_config['alloc']
+            time_a = ana_config['time_seq'] / (config['allocations'][ana_alloc]['node'] * ana_config['core'])
+            if ana_alloc == 'sim0':
+                time_a +=  data_size / (config['allocations'][ana_alloc]['node'] * bandwidth)
+            ana_config['time'] = time_a
+            if time_a > makespan:
+                makespan = time_a
+    config['makespan'] = makespan
 
     # print(simulations_config)
     with open('result.yml', 'w') as output_file:
