@@ -63,7 +63,7 @@ namespace wrench {
         TerminalOutput::setThisProcessLoggingColor(TerminalOutput::COLOR_GREEN);
         WRENCH_INFO("Controller starting");
 
-        /* Input parameters */
+        /* Pre-defined input parameters */
         std::vector<std::vector<int>> allocation_map = {{0,0,1,2}}; 
         std::vector<std::tuple<int, int>> cosched_allocations = {{0,1},{2,2},{3,3}};
         // int num_nodes = 2;
@@ -73,6 +73,9 @@ namespace wrench {
         double analysis_flops = 100 * GFLOP;
         double analysis_mem = 50 * MBYTE;
 
+        /* Amdahl alpha fraction. Setting this to 1 mean the task is perfectly parallel */
+        double amdahl_fraction = 1.0;
+
         /* Create a job manager so that we can create/submit jobs */
         auto job_manager = this->createJobManager();
 
@@ -81,7 +84,9 @@ namespace wrench {
         int num_simulations = config["simulations"].size();
         WRENCH_INFO("Number of simulations : %lu", config["simulations"].size());
         
+        /* Count number of Wrench compoud jobs */
         int num_jobs = 0;
+        /* Loop over simulations */
         for(YAML::const_iterator i=config["simulations"].begin(); i!=config["simulations"].end(); ++i) {
             std::string simulation_name = i->first.as<std::string>(); 
             std::string simulation_allocation = i->second["alloc"].as<std::string>();
@@ -109,7 +114,8 @@ namespace wrench {
                     /* Computing stage */
                     // WRENCH_INFO("Creating a compound job %s with a file read action followed by a compute action", job->getName().c_str());
                     auto compute_job = job_manager->createCompoundJob("member_" + simulation_name + "_compute_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-                    compute_job->addComputeAction("compute", simulation_flop, compute_mem, simulation_core, simulation_core, wrench::ParallelModel::AMDAHL(0.8));     
+                    compute_job->addComputeAction("compute", simulation_flop, compute_mem, simulation_core, simulation_core, wrench::ParallelModel::AMDAHL(amdahl_fraction));     
+                    /* Computing stage succeeds writing stage of the previous step */
                     if (step > 1)
                         compute_job->addParentJob(data_write_jobs[node-simulation_node_start]);       
                     job_manager->submitJob(compute_job, simulation_compute);
@@ -118,7 +124,9 @@ namespace wrench {
                     auto output_data = wrench::Simulation::addFile("member_" + simulation_name + "_output_data_step_" + std::to_string(step) + "_node_" + std::to_string(node), simulation_data_size);
                     auto data_write_job = job_manager->createCompoundJob("member_" + simulation_name + "_data_write_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
                     data_write_job->addFileWriteAction("data_write", output_data, wrench::FileLocation::LOCATION(simulation_storage));
+                    /* Writing stage succeeds computing stage */
                     data_write_job->addParentJob(compute_job);
+                    /* Writing stage succeeds reading stage of the previous iteration */
                     for (auto & data_read_job : data_read_jobs) {
                         data_write_job->addParentJob(data_read_job);
                     }
@@ -132,7 +140,9 @@ namespace wrench {
                 }
                 
                 data_read_jobs.clear();
+                // Analysis index
                 int k = 0;
+                /* Loop over coupled analyses of the simulation */
                 for(YAML::const_iterator j=i->second["coupling"].begin(); j!=i->second["coupling"].end(); ++j) {
                     
                     std::string analysis_name = j->first.as<std::string>();
@@ -141,11 +151,11 @@ namespace wrench {
                     int analysis_node_start = config["allocations"][analysis_allocation]["start"].as<int>(); 
                     int analysis_node_end = config["allocations"][analysis_allocation]["end"].as<int>(); 
                     int analysis_num_nodes = (analysis_node_end - analysis_node_start + 1);
+                    //
                     double analysis_total_data_size = simulation_data_size * simulation_num_nodes / analysis_num_nodes;
                     int analysis_core = j->second["core"].as<int>();
                     double analysis_flop = j->second["flop"].as<double>() * GFLOP;        
 
-                    int analysis_storage_node = simulation_node_start;
                     WRENCH_INFO("Analysis %s (simulation %s) is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node reads %.2lf bytes", analysis_name.c_str(), simulation_name.c_str(), analysis_allocation.c_str(), analysis_node_start, analysis_node_end, analysis_total_data_size);
 
                     for (int node = analysis_node_start; node <= analysis_node_end; node++) {
@@ -155,12 +165,14 @@ namespace wrench {
                         auto data_read_job = job_manager->createCompoundJob("member_" + simulation_name + "_" + analysis_name + "_data_read_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
                         int analysis_storage_node;
                         if (analysis_allocation == simulation_allocation) {
+                            /* The analysis is co-scheduled with the coupled simulation */
                             double analysis_data_size = simulation_data_size;
                             auto input_data = wrench::Simulation::addFile("member_" + simulation_name + "_" + analysis_name + "_input_data_step_" + std::to_string(step) + "_node_" + std::to_string(node), analysis_data_size);
                             auto analysis_storage = this->storage_services[node];
                             analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
                             data_read_job->addFileReadAction("data_read", input_data, wrench::FileLocation::LOCATION(analysis_storage));
                         } else {
+                            /* The analysis is not co-scheduled with the coupled simulation */
                             double analysis_data_size = simulation_data_size / analysis_num_nodes;
                             for (int simulation_storage_node = simulation_node_start; simulation_storage_node <= simulation_node_end; simulation_storage_node++) {
                                 auto input_data = wrench::Simulation::addFile("member_" + simulation_name + "_" + analysis_name + "_input_data_step_" + std::to_string(step) + "_node_" + std::to_string(node) + "_" + std::to_string(simulation_storage_node), analysis_data_size);
@@ -169,9 +181,10 @@ namespace wrench {
                                 data_read_job->addFileReadAction("data_read_" + std::to_string(simulation_storage_node), input_data, wrench::FileLocation::LOCATION(analysis_storage));
                             }
                         }
-                        
+                        /* Reading stage succeeds the analyzing stage of the previous iteration */
                         if (step > 1)
                             data_read_job->addParentJob(analysis_jobs[k][node - analysis_node_start]);
+                        /* Reading stage succeeds writing stages */
                         for (auto & data_write_job : data_write_jobs) {
                             data_read_job->addParentJob(data_write_job);
                         }
@@ -180,7 +193,8 @@ namespace wrench {
 
                         /* Analyzing stage */
                         auto analysis_job = job_manager->createCompoundJob("member_" + simulation_name + "_" + analysis_name + "_analysis_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-                        analysis_job->addComputeAction("analysis", analysis_flop, analysis_mem, analysis_core, analysis_core, wrench::ParallelModel::AMDAHL(0.8));
+                        analysis_job->addComputeAction("analysis", analysis_flop, analysis_mem, analysis_core, analysis_core, wrench::ParallelModel::AMDAHL(amdahl_fraction));
+                        /* Analyzing stage succeeds reading stage */
                         analysis_job->addParentJob(data_read_job);
                         if (step > 1) 
                             analysis_jobs[k][node - analysis_node_start] = analysis_job;
@@ -188,7 +202,6 @@ namespace wrench {
                             analysis_jobs[k].push_back(analysis_job);
                         job_manager->submitJob(analysis_job, analysis_compute);
 
-                        analysis_storage_node++;
                         num_jobs += 2;
                     }
                     ++k;
@@ -320,7 +333,7 @@ namespace wrench {
         /* Print info about all actions in the job */
         // WRENCH_INFO("It had %lu actions:", job->getActions().size());
         for (auto const &action : job->getActions()) {
-            WRENCH_INFO("  - Compound job %s completed: Action %s ran on host %s (physical: %s), used %lu cores for computation, and %.2lf bytes of RAM, started at time %.2lf and finished at time %.2lf",
+            WRENCH_INFO("  - Compound job %s completed: Action %s ran on host %s (physical: %s), used %lu cores for computation, and %.3lf bytes of RAM, started at time %.2lf and finished at time %.3lf",
                         job->getName().c_str(),
                         action->getName().c_str(),
                         action->getExecutionHistory().top().execution_host.c_str(),
