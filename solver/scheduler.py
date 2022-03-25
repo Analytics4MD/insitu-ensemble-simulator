@@ -119,6 +119,9 @@ if __name__ == "__main__":
         allocation_config['start'] = start_node
         start_node += node
         allocation_config['end'] = start_node
+        
+        core = simulations_config[sim]['time_seq'] * cores / numerator
+        simulations_config[sim]['core'] = core
 
         # Core allocation
         for ana in simulations_config[sim]['coupling']:
