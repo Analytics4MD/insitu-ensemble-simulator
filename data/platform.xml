@@ -5,41 +5,41 @@
     <zone id="AS0" routing="Full">
 
         <!-- The host on which the WMS will run -->
-        <host id="UserHost" speed="10Gf" core="1">
+        <host id="UserHost" speed="36.8Gf" core="1">
         </host>
 
         <!-- The compute host -->
-        <host id="ComputeHost1" speed="10Gf" core="32">
-            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
+        <host id="ComputeHost1" speed="36.8Gf" core="32">
+            <disk id="local_disk" read_bw="460GBps" write_bw="460GBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
-            <prop id="ram" value="16GB" />
+            <prop id="ram" value="128GB" />
         </host>
-        <host id="ComputeHost2" speed="10Gf" core="32">
-            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
+        <host id="ComputeHost2" speed="36.8Gf" core="32">
+            <disk id="local_disk" read_bw="460GBps" write_bw="460GBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
-            <prop id="ram" value="16GB" />
+            <prop id="ram" value="128GB" />
         </host>
-        <host id="ComputeHost3" speed="10Gf" core="32">
-            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
+        <host id="ComputeHost3" speed="36.8Gf" core="32">
+            <disk id="local_disk" read_bw="460GBps" write_bw="460GBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
-            <prop id="ram" value="16GB" />
+            <prop id="ram" value="128GB" />
         </host>
-        <host id="ComputeHost4" speed="10Gf" core="32">
-            <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
+        <host id="ComputeHost4" speed="36.8Gf" core="32">
+            <disk id="local_disk" read_bw="460GBps" write_bw="460GBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
-            <prop id="ram" value="16GB" />
+            <prop id="ram" value="128GB" />
         </host>
 
         <!-- A network link that connects both hosts -->
-        <link id="shared_network" bandwidth="50MBps" latency="20us"/>
+        <link id="shared_network" bandwidth="6GBps" latency="1.97us"/>
 
         <!-- Network routes -->
         <route src="UserHost" dst="ComputeHost1"> <link_ctn id="shared_network"/> </route>
