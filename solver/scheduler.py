@@ -45,6 +45,7 @@ if __name__ == "__main__":
         time_s_sum += time_s_seq
         simulations_config[sim]['time_seq'] = time_s_seq
         data_size = simulations_config[sim]['data']
+        simulations_config[sim]['alloc'] = sim
         # print(config['non-co-scheduling'][sim])
         # print(config['simulations'][sim]['coupling'])
 
@@ -54,9 +55,11 @@ if __name__ == "__main__":
             time_a_seq = ana_config['flop']/speed
             ana_config['time_seq'] = time_a_seq
             if ana in scheduling_config[sim]:
+                ana_config['alloc'] = 'sim0'
                 time_nc_sum += time_a_seq
                 temp[ana] = (time_a_seq, data_size)
             else:
+                ana_config['alloc'] = sim
                 time_c_sum += time_a_seq
         
         func_props[sim] = temp

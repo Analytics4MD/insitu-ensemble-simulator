@@ -9,28 +9,28 @@
         </host>
 
         <!-- The compute host -->
-        <host id="ComputeHost1" speed="10Gf" core="10">
+        <host id="ComputeHost1" speed="10Gf" core="32">
             <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
             <prop id="ram" value="16GB" />
         </host>
-        <host id="ComputeHost2" speed="10Gf" core="10">
+        <host id="ComputeHost2" speed="10Gf" core="32">
             <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
             <prop id="ram" value="16GB" />
         </host>
-        <host id="ComputeHost3" speed="10Gf" core="10">
+        <host id="ComputeHost3" speed="10Gf" core="32">
             <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
             <prop id="ram" value="16GB" />
         </host>
-        <host id="ComputeHost4" speed="10Gf" core="10">
+        <host id="ComputeHost4" speed="10Gf" core="32">
             <disk id="local_disk" read_bw="100MBps" write_bw="100MBps">
                 <prop id="size" value="5000GiB"/>
                 <prop id="mount" value="/"/>

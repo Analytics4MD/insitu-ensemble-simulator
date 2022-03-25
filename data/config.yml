@@ -1,5 +1,5 @@
 # Number of nodes
-nodes: 10
+nodes: 4
 # Number of physical cores per node
 cores: 32
 # Memory bandwidth per node (GB/s)
@@ -10,7 +10,6 @@ memory: 128
 speed: 36.8
 simulations:
     sim1:
-        alloc: 
         # Memory usage
         mem: 500
         flop: 5
@@ -18,63 +17,17 @@ simulations:
         data: 1
         coupling:
             ana1:
-                alloc:
+                alloc: 
                 mem:
                 flop: 2 
             ana2:
-                alloc:
+                alloc: 
                 mem:
                 flop: 1 
             ana3:
                 alloc: 
                 mem: 
                 flop: 3
-    sim2:
-        alloc: 1
-        mem: 
-        flop: 7
-        data: 2
-        coupling:
-            ana1:
-                alloc: 
-                mem: 
-                flop: 4
-            ana2:
-                alloc: 
-                mem: 
-                flop: 6
-            ana3:
-                alloc: 
-                mem: 
-                flop: 2
-            ana4:
-                alloc: 
-                mem: 
-                flop: 3
-    sim3:
-        alloc: 1
-        mem: 
-        flop: 7
-        data: 3
-        coupling:
-            ana1:
-                alloc: 
-                mem: 
-                flop: 4
-            ana2:
-                alloc: 
-                mem: 
-                flop: 6
-            ana3:
-                alloc: 
-                mem: 
-                flop: 2
-            ana4:
-                alloc: 
-                mem: 
-                flop: 3
 non-co-scheduling:
-    sim1: [ana1, ana3]
-    sim2: [ana4, ana1]
-    sim3: [ana2, ana3]
+    sim1: [ana3]
 
