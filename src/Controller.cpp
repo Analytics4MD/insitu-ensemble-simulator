@@ -136,29 +136,40 @@ namespace wrench {
                 for(YAML::const_iterator j=i->second["coupling"].begin(); j!=i->second["coupling"].end(); ++j) {
                     
                     std::string analysis_name = j->first.as<std::string>();
-                    std::cout << analysis_name << std::endl;
+                    // std::cout << analysis_name << std::endl;
                     std::string analysis_allocation = j->second["alloc"].as<std::string>();
                     int analysis_node_start = config["allocations"][analysis_allocation]["start"].as<int>(); 
                     int analysis_node_end = config["allocations"][analysis_allocation]["end"].as<int>(); 
                     int analysis_num_nodes = (analysis_node_end - analysis_node_start + 1);
-                    double analysis_data_size = data_size / analysis_num_nodes;
+                    double analysis_total_data_size = simulation_data_size * simulation_num_nodes / analysis_num_nodes;
                     int analysis_core = j->second["core"].as<int>();
                     double analysis_flop = j->second["flop"].as<double>() * GFLOP;        
 
                     int analysis_storage_node = simulation_node_start;
-                    WRENCH_INFO("Analysis %s (simulation %s) is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node reads %.2lf bytes", analysis_name.c_str(), simulation_name.c_str(), analysis_allocation.c_str(), analysis_node_start, analysis_node_end, analysis_data_size);
+                    WRENCH_INFO("Analysis %s (simulation %s) is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node reads %.2lf bytes", analysis_name.c_str(), simulation_name.c_str(), analysis_allocation.c_str(), analysis_node_start, analysis_node_end, analysis_total_data_size);
 
                     for (int node = analysis_node_start; node <= analysis_node_end; node++) {
-                        if (analysis_storage_node > simulation_node_end) 
-                            analysis_storage_node = simulation_node_start; 
-                        auto analysis_storage = this->storage_services[analysis_storage_node];
                         auto analysis_compute = this->compute_services[node];
 
                         /* Reading stage */
-                        auto input_data = wrench::Simulation::addFile("member_" + simulation_name + "_" + analysis_name + "_input_data_step_" + std::to_string(step) + "_node_" + std::to_string(node), analysis_data_size);
-                        analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
                         auto data_read_job = job_manager->createCompoundJob("member_" + simulation_name + "_" + analysis_name + "_data_read_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-                        data_read_job->addFileReadAction("data_read", input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                        int analysis_storage_node;
+                        if (analysis_allocation == simulation_allocation) {
+                            double analysis_data_size = simulation_data_size;
+                            auto input_data = wrench::Simulation::addFile("member_" + simulation_name + "_" + analysis_name + "_input_data_step_" + std::to_string(step) + "_node_" + std::to_string(node), analysis_data_size);
+                            auto analysis_storage = this->storage_services[node];
+                            analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                            data_read_job->addFileReadAction("data_read", input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                        } else {
+                            double analysis_data_size = simulation_data_size / analysis_num_nodes;
+                            for (int simulation_storage_node = simulation_node_start; simulation_storage_node <= simulation_node_end; simulation_storage_node++) {
+                                auto input_data = wrench::Simulation::addFile("member_" + simulation_name + "_" + analysis_name + "_input_data_step_" + std::to_string(step) + "_node_" + std::to_string(node) + "_" + std::to_string(simulation_storage_node), analysis_data_size);
+                                auto analysis_storage = this->storage_services[simulation_storage_node];
+                                analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                                data_read_job->addFileReadAction("data_read_" + std::to_string(simulation_storage_node), input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                            }
+                        }
+                        
                         if (step > 1)
                             data_read_job->addParentJob(analysis_jobs[k][node - analysis_node_start]);
                         for (auto & data_write_job : data_write_jobs) {
