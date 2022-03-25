@@ -95,8 +95,8 @@ namespace wrench {
             int simulation_num_nodes = simulation_node_end - simulation_node_start + 1;
             double data_size = i->second["data"].as<double>() * GBYTE;
             double simulation_data_size = data_size / simulation_num_nodes;
-            int simulation_core = i->second["core"].as<int>();
-            double simulation_flop = i->second["flop"].as<double>() * GFLOP;
+            int simulation_core = i->second["core_per_node"].as<int>();
+            double simulation_flop = i->second["flop"].as<double>() * GFLOP / simulation_num_nodes;
             int num_analyses = i->second["coupling"].size();
             WRENCH_INFO("Simulation %s is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node writes %.2lf bytes", simulation_name.c_str(), simulation_allocation.c_str(), simulation_node_start, simulation_node_end, simulation_data_size);
             WRENCH_INFO("Number of analyses coupled with simulation %s : %d", simulation_name.c_str(), num_analyses);
@@ -153,8 +153,8 @@ namespace wrench {
                     int analysis_num_nodes = (analysis_node_end - analysis_node_start + 1);
                     //
                     double analysis_total_data_size = simulation_data_size * simulation_num_nodes / analysis_num_nodes;
-                    int analysis_core = j->second["core"].as<int>();
-                    double analysis_flop = j->second["flop"].as<double>() * GFLOP;        
+                    int analysis_core = j->second["core_per_node"].as<int>();
+                    double analysis_flop = j->second["flop"].as<double>() * GFLOP / analysis_num_nodes;        
 
                     WRENCH_INFO("Analysis %s (simulation %s) is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node reads %.2lf bytes", analysis_name.c_str(), simulation_name.c_str(), analysis_allocation.c_str(), analysis_node_start, analysis_node_end, analysis_total_data_size);
 
@@ -333,7 +333,7 @@ namespace wrench {
         /* Print info about all actions in the job */
         // WRENCH_INFO("It had %lu actions:", job->getActions().size());
         for (auto const &action : job->getActions()) {
-            WRENCH_INFO("  - Compound job %s completed: Action %s ran on host %s (physical: %s), used %lu cores for computation, and %.3lf bytes of RAM, started at time %.2lf and finished at time %.3lf",
+            WRENCH_INFO("  - Compound job %s completed: Action %s ran on host %s (physical: %s), used %lu cores for computation, and %.2lf bytes of RAM, started at time %.4lf and finished at time %.4lf",
                         job->getName().c_str(),
                         action->getName().c_str(),
                         action->getExecutionHistory().top().execution_host.c_str(),
