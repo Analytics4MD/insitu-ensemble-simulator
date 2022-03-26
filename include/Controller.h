@@ -27,7 +27,6 @@ namespace wrench {
                   const std::vector<std::shared_ptr<BareMetalComputeService>> &compute_services,
                   const std::vector<std::shared_ptr<SimpleStorageService>> &storage_services,
                   const std::string &hostname,
-                  const int &num_steps,
                   const std::string &config_file
                   );
 
@@ -43,7 +42,6 @@ namespace wrench {
 
         const std::vector<std::shared_ptr<BareMetalComputeService>> compute_services;
         const std::vector<std::shared_ptr<SimpleStorageService>> storage_services;
-        const int num_steps;
         const std::string config_file;
 
     };

@@ -37,18 +37,17 @@ int main(int argc, char **argv) {
     simulation->init(&argc, argv);
 
     /* Parsing of the command-line arguments */
-    if (argc != 5) {
-        std::cerr << "Usage: " << argv[0] << " <number of compute nodes> <number of steps> <yaml config file> <xml platform file> [--log=controller.threshold=info | --wrench-full-log]" << std::endl;
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <number of compute nodes> <yaml config file> <xml platform file> [--log=controller.threshold=info | --wrench-full-log]" << std::endl;
         exit(1);
     }
 
     /* Instantiating the simulated platform */
     std::cerr << "Instantiating simulated platform..." << std::endl;
-    simulation->instantiatePlatform(argv[4]);
+    simulation->instantiatePlatform(argv[3]);
 
     int num_nodes = std::atoi(argv[1]);
-    int num_steps = std::atoi(argv[2]);
-    std::string config_file(argv[3]);
+    std::string config_file(argv[2]);
 
 
     std::cerr << "Instantiating compute and storage services..." << std::endl;
@@ -70,7 +69,7 @@ int main(int argc, char **argv) {
     /* Instantiate an execution controller */
     std::cerr << "Instantiating execution controller..." << std::endl;
     auto wms = simulation->add(
-        new wrench::Controller(compute_services, storage_services, "UserHost", num_steps, config_file));
+        new wrench::Controller(compute_services, storage_services, "UserHost", config_file));
 
     /* Launch the simulation */
     std::cerr << "Launching the Simulation..." << std::endl;

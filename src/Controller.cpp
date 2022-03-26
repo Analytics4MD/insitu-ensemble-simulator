@@ -37,16 +37,13 @@ namespace wrench {
     Controller::Controller(const std::vector<std::shared_ptr<BareMetalComputeService>> &compute_services,
                            const std::vector<std::shared_ptr<SimpleStorageService>> &storage_services,
                            const std::string &hostname,
-                           const int &num_steps,
                            const std::string &config_file) :
             ExecutionController(hostname,"controller"),
             compute_services(compute_services), 
             storage_services(storage_services),
-            num_steps(num_steps),
             config_file(config_file) {
         WRENCH_INFO("Number of compute services: %lu", this->compute_services.size());
         WRENCH_INFO("Number of storage services: %lu", this->storage_services.size());
-        WRENCH_INFO("Number of steps: %d", this->num_steps);
         WRENCH_INFO("YAML configuration file: %s", this->config_file.c_str());
     }
 
@@ -83,6 +80,8 @@ namespace wrench {
         YAML::Node config = YAML::LoadFile(this->config_file);
         int num_simulations = config["simulations"].size();
         WRENCH_INFO("Number of simulations : %lu", config["simulations"].size());
+        int num_steps = config["steps"].as<int>();
+        WRENCH_INFO("Number of steps: %d", num_steps);
         
         /* Count number of Wrench compoud jobs */
         int num_jobs = 0;
@@ -105,7 +104,7 @@ namespace wrench {
             data_write_jobs.reserve(simulation_num_nodes);
             std::vector<std::shared_ptr<wrench::CompoundJob>> data_read_jobs;
             std::vector<std::vector<std::shared_ptr<wrench::CompoundJob>>> analysis_jobs(num_analyses);
-            for (int step = 1; step <= this->num_steps; step++) {
+            for (int step = 1; step <= num_steps; step++) {
                 
                 for (int node = simulation_node_start; node <= simulation_node_end; node++) {
                     auto simulation_storage = this->storage_services[node];
