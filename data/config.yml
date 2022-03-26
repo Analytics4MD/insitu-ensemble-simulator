@@ -8,6 +8,8 @@ bandwidth: 460
 memory: 128
 # Computational power per core (GFLOPs)
 speed: 36.8
+# Number of steps
+steps: 10
 simulations:
     sim1:
         # Memory usage
