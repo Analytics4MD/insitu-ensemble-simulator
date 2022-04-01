@@ -4,39 +4,66 @@ from sympy import solveset, S, Eq
 from sympy.abc import x
 import signal
 import math
-
-def round_up(number):
-    return round(number+0.5)
-
-def round_down(number):
-    return round(number-0.5)
+import random
 
 def heuristic_round(number):
     return round(number) 
 
 # Load yaml config file
 config_file = '../data/config.yml'
-with open(config_file, 'r') as file:
-    config = yaml.safe_load(file)
+output_file = 'result.yml'
 
-simulations_config = config['simulations']
-scheduling_config = config['non-co-scheduling']
-# allocations_config = config['allocations']
+def schedule(config_file, output_file, heuristic="increasing"):
+    with open(config_file, 'r') as file:
+        config = yaml.safe_load(file)
+    
+    simulations_config = config['simulations']
+    for sim in simulations_config:
+        simulations_config[sim]['alloc'] = sim
+        if heuristic == 'increasing':
+            sorted_ana = sorted(simulations_config[sim]['coupling'].items(), key=lambda item: item[1]['flop'])
+        elif heuristic == 'decreasing':
+            sorted_ana = sorted(simulations_config[sim]['coupling'].items(), key=lambda item: item[1]['flop'], reverse=True)
+        else:
+            sorted_ana = list(simulations_config[sim]['coupling'].items())
+        # print(sorted_ana)
+        if not config['non-co-scheduling'][sim]:
+            config['non-co-scheduling'][sim] = []
+        subset_ana = [k for k, v in sorted_ana if k not in config['non-co-scheduling'][sim]]
+        if not subset_ana:
+            print(f'{sim} has no feasible scheduling')
+            return False
+        if heuristic == "random":
+            new_ana = random.choice(subset_ana)
+        else:
+            new_ana = subset_ana[0]
+        config['non-co-scheduling'][sim].append(new_ana)
+    
+    with open(output_file, 'w') as file:
+        yaml.dump(config, file)
 
-# Computational power per core (GFLOPs)
-speed = config['speed']
-# Number of cores per node
-cores = config['cores']
-# Memory bandwidth per node (GB/s)
-bandwidth = config['bandwidth']
-# Number of nodes
-nodes = config['nodes']
-print('Number of nodes : {}'.format(nodes))
-print('Number of cores per node : {}'.format(cores))
-print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
-print('Computational power per core (GFLOPs) : {}'.format(speed))
+    return True
 
-if __name__ == "__main__":
+def allocate(config_file, output_file, round_up=True):
+    with open(config_file, 'r') as file:
+        config = yaml.safe_load(file)
+
+    simulations_config = config['simulations']
+    scheduling_config = config['non-co-scheduling']
+    # allocations_config = config['allocations']
+
+    # Computational power per core (GFLOPs)
+    speed = config['speed']
+    # Number of cores per node
+    cores = config['cores']
+    # Memory bandwidth per node (GB/s)
+    bandwidth = config['bandwidth']
+    # Number of nodes
+    nodes = config['nodes']
+    print('Number of nodes : {}'.format(nodes))
+    print('Number of cores per node : {}'.format(cores))
+    print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
+    print('Computational power per core (GFLOPs) : {}'.format(speed))
 
     func_props = {}
     # t(P^NC)
@@ -94,7 +121,10 @@ if __name__ == "__main__":
     nc_nodes = nodes * (bandwidth * time_nc_sum + u) / (bandwidth * time_sum + u)
     
     # Heuristic to round n^{NC}
-    round_nc_nodes = math.floor(nc_nodes)
+    if round_up:
+        round_nc_nodes = math.ceil(nc_nodes)
+    else:
+        round_nc_nodes = math.floor(nc_nodes)
     print('Number of nodes for non-co-scheduling : {} {}'.format(nc_nodes, round_nc_nodes))
     # round_nc_nodes = nc_nodes
 
@@ -114,7 +144,7 @@ if __name__ == "__main__":
             ana_config['core_per_node'] = core
             time_a = ana_config['time_seq'] / (round_nc_nodes * core)
             time_a +=  data_size / (round_nc_nodes * bandwidth)
-            ana_config['time_nr'] = time_a 
+            # ana_config['time_nr'] = time_a 
     
     # Heuristic to round c^{NC}: Round up c_A of analyses A with greater t(A)  
     # Sort by analysis sequential time
@@ -192,7 +222,7 @@ if __name__ == "__main__":
                     round_node = math.ceil(node)
         
         config['allocations'][sim]['node'] = round_node
-        config['allocations'][sim]['node_nr'] = node
+        # config['allocations'][sim]['node_nr'] = node
         print(sim, node, round_node)  
 
         num_int_cores = 0
@@ -243,8 +273,8 @@ if __name__ == "__main__":
             
             core_per_node['core_per_node'] = round_core
             core_per_node['time'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * round_core)
-            core_per_node['time_nrc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * core)
-            core_per_node['time_nrnc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node_nr'] * core)
+            # core_per_node['time_nrc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * core)
+            # core_per_node['time_nrnc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node_nr'] * core)
 
 
     start_node = 0
@@ -261,9 +291,6 @@ if __name__ == "__main__":
     config['allocations']['sim0']['start'] = start_node
     config['allocations']['sim0']['end'] = start_node + round_nc_nodes - 1
     # print(config['allocations']) 
-        
-
-    
 
     # # Execution time and makespan
     makespan = float('-inf')
@@ -285,7 +312,44 @@ if __name__ == "__main__":
     config['makespan'] = makespan * config['steps']
 
     # print(simulations_config)
-    with open('result.yml', 'w') as output_file:
-        yaml.dump(config, output_file)
+    with open(output_file, 'w') as out_file:
+        yaml.dump(config, out_file)
 
+def feasible(config_file, output_file):  
+    with open(config_file, 'r') as file:
+        config = yaml.safe_load(file)
+    simulations_config = config['simulations']
+    scheduling_config = config['non-co-scheduling']
+    allocations_config = config['allocations']
+
+    mem = config['memory']
+
+    # Check if the configuration is feasible  
+    uf_allocs = []
+    mem_remain_nc = allocations_config['sim0']['node'] * mem
+    for sim in simulations_config:
+        
+        sim_alloc = simulations_config[sim]['alloc']
+        node = allocations_config[sim_alloc]['node']
+        mem_remain_c = mem * node - simulations_config[sim]['mem']
+        for ana in simulations_config[sim]['coupling']:
+            ana_config = simulations_config[sim]['coupling'][ana]
+            if ana_config['alloc'] == sim_alloc:
+                mem_remain_c -= ana_config['mem']
+            else:
+                mem_remain_nc -= ana_config['mem']
+        if mem_remain_c < 0:
+            uf_allocs.append(sim)
+    if mem_remain_nc < 0:
+        uf_allocs.append('sim0')
+
+    config['unfeasible'] = uf_allocs
+    with open(config_file, 'w') as file:
+        yaml.dump(config, file)
     
+    return uf_allocs
+
+if __name__ == "__main__":
+    schedule(output_file, output_file, 'random')
+    allocate(output_file, output_file, False)
+    print(feasible(output_file, output_file))
