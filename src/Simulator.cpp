@@ -57,7 +57,20 @@ int main(int argc, char **argv) {
         std::string host_name = "ComputeHost" + std::to_string(i);
         /* Instantiate a storage service on the platform */            
         auto storage_service = simulation->add(new wrench::SimpleStorageService(
-            host_name, {"/"}, {}, {}));
+            host_name, {"/"}, 
+            // {{wrench::SimpleStorageServiceProperty::BUFFER_SIZE, "infinity"}}, 
+            {},
+            {{wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_ANSWER_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_REQUEST_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_READ_ANSWER_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_READ_REQUEST_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_LOOKUP_ANSWER_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_LOOKUP_REQUEST_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_COPY_ANSWER_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_COPY_REQUEST_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_DELETE_ANSWER_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_DELETE_REQUEST_MESSAGE_PAYLOAD, 0}}
+            ));
         storage_services.push_back(storage_service);
 
         /* Instantiate a bare-metal compute service on the platform */
