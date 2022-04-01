@@ -394,27 +394,33 @@ def feasible(config_file, output_file):
     return uf_allocs, config['makespan']
 
 if __name__ == "__main__":
+    heuristic = 'random'
     input_fn = config_file
     # input_fn = 'feasible5'
     k = 1
     output_fn = 'log.schedule' + str(k)  
     min_makespan = float('inf')
     while True :
-        if not schedule(input_fn, output_fn, 'random'):
+        if not schedule(input_fn, output_fn, heuristic):
             print(f'Not able to schedule further')
             break
+        
         input_fn = output_fn
-        output_fn = 'log.allocate' + str(k)
-        allocate(input_fn, output_fn, True)
-        input_fn = output_fn
-        output_fn = 'log.feasible' + str(k)
-        unfeasible, makespan = feasible(input_fn, output_fn)
-        if not unfeasible:
-            print(f'Schedule is feasible, makespan: {makespan}')
-            # break
-            if makespan < min_makespan:
-                min_makespan = makespan
-        input_fn = output_fn
+        for method in ['up', 'down']:
+            output_fn = 'log.allocate' + '_' + method + str(k)
+            if method == 'up':
+                allocate(input_fn, output_fn, True)
+            else: 
+                allocate(input_fn, output_fn, False)
+
+            unfeasible, makespan = feasible('log.allocate' + '_' + method + str(k), 'log.feasible' + '_' + method + str(k))
+            if not unfeasible:
+                print(f'Schedule is feasible, makespan: {makespan}')
+                # break
+                if makespan < min_makespan:
+                    min_makespan = makespan
+        
+        input_fn = 'log.feasible_up' + str(k)
         k += 1
         output_fn = 'log.schedule' + str(k)
         print('\n')
