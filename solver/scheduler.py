@@ -18,26 +18,70 @@ def schedule(config_file, output_file, heuristic="increasing"):
         config = yaml.safe_load(file)
     
     simulations_config = config['simulations']
-    for sim in simulations_config:
-        simulations_config[sim]['alloc'] = sim
-        if heuristic == 'increasing':
-            sorted_ana = sorted(simulations_config[sim]['coupling'].items(), key=lambda item: item[1]['flop'])
+    # print(simulations_config.keys())
+    if not config['unfeasible']:
+        config['unfeasible'] = list(simulations_config.keys())
+    
+    if config['unfeasible'] == ['sim0']:
+        picked_sim = None
+        picked_ana = None
+        if heuristic == "increasing":
+            picked_flop = float('inf')
         elif heuristic == 'decreasing':
-            sorted_ana = sorted(simulations_config[sim]['coupling'].items(), key=lambda item: item[1]['flop'], reverse=True)
+            picked_flop = float('-inf')
         else:
-            sorted_ana = list(simulations_config[sim]['coupling'].items())
-        # print(sorted_ana)
-        if not config['non-co-scheduling'][sim]:
-            config['non-co-scheduling'][sim] = []
-        subset_ana = [k for k, v in sorted_ana if k not in config['non-co-scheduling'][sim]]
-        if not subset_ana:
-            print(f'{sim} has no feasible scheduling')
-            return False
-        if heuristic == "random":
-            new_ana = random.choice(subset_ana)
+            picked_anas = []
+        for sim in simulations_config:
+            for ana in simulations_config[sim]['coupling']:
+                if ana not in config['non-co-scheduling'][sim]:
+                    ana_flop = simulations_config[sim]['coupling'][ana]['flop']
+                    if heuristic == "increasing":
+                        if ana_flop < picked_flop:
+                            picked_sim = sim
+                            picked_ana = ana
+                            picked_flop = ana_flop
+                    elif heuristic == "decreasing":
+                        if ana_flop > picked_flop:
+                            picked_sim = sim
+                            picked_ana = ana
+                            picked_flop = ana_flop
+                    else:
+                        picked_anas.append((sim, ana))
+        
+        if heuristic == "increasing" or heuristic == "decreasing":
+            if not picked_sim:
+                print(f'sim0 has no feasible scheduling')
+                return False
         else:
-            new_ana = subset_ana[0]
-        config['non-co-scheduling'][sim].append(new_ana)
+            if not picked_anas:
+                print(f'sim0 has no feasible scheduling')
+                return False
+            (picked_sim, picked_ana) = random.choice(picked_anas)
+        
+        config['non-co-scheduling'][picked_sim].append(picked_ana)
+                    
+
+    for sim in config['unfeasible']:
+        if sim != 'sim0':
+            simulations_config[sim]['alloc'] = sim
+            if heuristic == 'increasing':
+                sorted_ana = sorted(simulations_config[sim]['coupling'].items(), key=lambda item: item[1]['flop'])
+            elif heuristic == 'decreasing':
+                sorted_ana = sorted(simulations_config[sim]['coupling'].items(), key=lambda item: item[1]['flop'], reverse=True)
+            else:
+                sorted_ana = list(simulations_config[sim]['coupling'].items())
+            # print(sorted_ana)
+            if not config['non-co-scheduling'][sim]:
+                config['non-co-scheduling'][sim] = []
+            subset_ana = [k for k, v in sorted_ana if k not in config['non-co-scheduling'][sim]]
+            if not subset_ana:
+                print(f'{sim} has no feasible scheduling')
+                return False
+            if heuristic == "random":
+                new_ana = random.choice(subset_ana)
+            else:
+                new_ana = subset_ana[0]
+            config['non-co-scheduling'][sim].append(new_ana)
     
     with open(output_file, 'w') as file:
         yaml.dump(config, file)
@@ -149,8 +193,8 @@ def allocate(config_file, output_file, round_up=True):
     # Heuristic to round c^{NC}: Round up c_A of analyses A with greater t(A)  
     # Sort by analysis sequential time
     sorted_nc_seq_dict = sorted(nc_seq_dict.items(), key=lambda item: item[1])
-    print(nc_seq_dict)
-    print(sorted_nc_seq_dict)
+    # print(nc_seq_dict)
+    # print(sorted_nc_seq_dict)
     threshold = len(sorted_nc_seq_dict) - num_int_cores - cores + sum_core_rd
     print('Number of analyses whose cores are round up : {}'.format(threshold))
     for sim_ana, time_seq in sorted_nc_seq_dict:
@@ -173,7 +217,7 @@ def allocate(config_file, output_file, round_up=True):
         time_a = ana_config['time_seq'] / (round_nc_nodes * round_core)
         time_a +=  data_size / (round_nc_nodes * bandwidth)
         ana_config['time'] = time_a
-        print(sim, ana, core, round_core, time_a)
+        # print(sim, ana, core, round_core, time_a)
 
     # Compute n^{C}
     c_nodes = nodes - round_nc_nodes
@@ -203,10 +247,10 @@ def allocate(config_file, output_file, round_up=True):
         config['allocations'][sim]['node'] = node
 
     sorted_c_seq_dict = sorted(c_seq_dict.items(), key=lambda item: item[1])
-    print(c_seq_dict)
-    print(sorted_c_seq_dict)
+    # print(c_seq_dict)
+    # print(sorted_c_seq_dict)
     threshold = len(sorted_c_seq_dict) - num_int_nodes - c_nodes + sum_c_nodes_rd
-    print(threshold)
+    # print(threshold)
     for sim, numerator in sorted_c_seq_dict:
         node = config['allocations'][sim]['node']
         if node.is_integer():
@@ -223,7 +267,7 @@ def allocate(config_file, output_file, round_up=True):
         
         config['allocations'][sim]['node'] = round_node
         # config['allocations'][sim]['node_nr'] = node
-        print(sim, node, round_node)  
+        # print(sim, node, round_node)  
 
         num_int_cores = 0
         core = simulations_config[sim]['time_seq'] * cores / numerator
@@ -244,14 +288,14 @@ def allocate(config_file, output_file, round_up=True):
                 ana_config['core_per_node'] = core
                 sim_seq_dict[sim + '_' + ana] = (ana_config['time_seq'],core)
                 
-        print(sim_seq_dict.items())
+        # print(sim_seq_dict.items())
         sorted_sim_seq_dict = sorted(sim_seq_dict.items(), key=lambda item: item[1][0])
-        print(sorted_sim_seq_dict)
+        # print(sorted_sim_seq_dict)
         sub_threshold = len(sorted_sim_seq_dict) - num_int_cores - cores + sum_sim_rd 
-        print(sub_threshold)
+        # print(sub_threshold)
         for sim_ana, time_seq in sorted_sim_seq_dict:
             sim, ana = sim_ana.split('_')
-            print(sim, ana)
+            # print(sim, ana)
             core = time_seq[1]
             if not ana:
                 core_per_node = simulations_config[sim] 
@@ -344,12 +388,23 @@ def feasible(config_file, output_file):
         uf_allocs.append('sim0')
 
     config['unfeasible'] = uf_allocs
-    with open(config_file, 'w') as file:
+    with open(output_file, 'w') as file:
         yaml.dump(config, file)
     
     return uf_allocs
 
 if __name__ == "__main__":
-    schedule(output_file, output_file, 'random')
-    allocate(output_file, output_file, False)
-    print(feasible(output_file, output_file))
+    input_fn = config_file
+    k = 1
+    output_fn = 'schedule' + str(k)  
+    
+    while schedule(input_fn, output_fn, 'decreasing') :
+        input_fn = output_fn
+        output_fn = 'allocate' + str(k)
+        allocate(input_fn, output_fn, False)
+        input_fn = output_fn
+        output_fn = 'feasible' + str(k)
+        print(feasible(input_fn, output_fn))
+        input_fn = output_fn
+        k += 1
+        output_fn = 'schedule' + str(k)
