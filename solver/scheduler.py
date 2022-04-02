@@ -38,12 +38,12 @@ def schedule(config_file, output_file, heuristic="increasing"):
                     if ana not in config['non-co-scheduling'][sim]:
                         ana_flop = simulations_config[sim]['coupling'][ana]['flop']
                         if heuristic == "increasing":
-                            if ana_flop < picked_flop:
+                            if ana_flop <= picked_flop:
                                 picked_sim = sim
                                 picked_ana = ana
                                 picked_flop = ana_flop
                         elif heuristic == "decreasing":
-                            if ana_flop > picked_flop:
+                            if ana_flop >= picked_flop:
                                 picked_sim = sim
                                 picked_ana = ana
                                 picked_flop = ana_flop
@@ -126,16 +126,13 @@ def allocate(config_file, output_file, round_up=True):
     time_c_sum = 0
     # Compute t(S), t(P^C), t(P^NC)
     for sim in scheduling_config:
-        # print(sim)
-        time_s_seq = simulations_config[sim]['flop']/speed
+        time_s_seq = simulations_config[sim]['time_seq']
         time_s_sum += time_s_seq
-        simulations_config[sim]['time_seq'] = time_s_seq
         simulations_config[sim]['alloc'] = sim
 
         for ana in simulations_config[sim]['coupling']:
             ana_config = simulations_config[sim]['coupling'][ana]
-            time_a_seq = ana_config['flop']/speed
-            ana_config['time_seq'] = time_a_seq
+            time_a_seq = ana_config['time_seq'] 
             if ana in scheduling_config[sim]:
                 ana_config['alloc'] = 'sim0'
                 time_nc_sum += time_a_seq
@@ -144,6 +141,7 @@ def allocate(config_file, output_file, round_up=True):
                 time_c_sum += time_a_seq
 
     if not ideal_sched:
+        print('not ideal scheduling')
         # Solve Equation 25
         equation = - 1/bandwidth
         for sim in scheduling_config:
@@ -152,7 +150,7 @@ def allocate(config_file, output_file, round_up=True):
                 ana_config = simulations_config[sim]['coupling'][ana]
                 equation += ana_config['time_seq']/(bandwidth * time_nc_sum + x - cores * data_size)
         u_sol = solveset(equation, x, domain=S.Reals)
-        # print(u_sol)
+        print(u_sol)
         lu = list(u_sol.args)
         u = float(lu[-1])
         print("U = {}".format(u))
@@ -165,6 +163,12 @@ def allocate(config_file, output_file, round_up=True):
         if round_up:
             round_nc_nodes = math.ceil(nc_nodes)
         else:
+            if nc_nodes < 1:
+                print(f'Cannot round down num_nodes for non-co-scheduling to 0')
+                config['unfeasible'] = []
+                with open(output_file, 'w') as file:
+                    yaml.dump(config, file)
+                return False 
             round_nc_nodes = math.floor(nc_nodes)
         print(f'nc_nodes = {nc_nodes}')
 
@@ -193,6 +197,7 @@ def allocate(config_file, output_file, round_up=True):
         # print(sorted_nc_seq_dict)
         threshold = len(sorted_nc_seq_dict) - num_int_cores - cores + sum_core_rd
         # print('Number of analyses whose cores are round up : {}'.format(threshold))
+        # sum_cores = 0
         for sim_ana, time_seq in sorted_nc_seq_dict:
             sim, ana = sim_ana.split('_')
             ana_config = simulations_config[sim]['coupling'][ana]
@@ -208,19 +213,33 @@ def allocate(config_file, output_file, round_up=True):
                         threshold -= 1
                     else:
                         round_core = math.ceil(core)
+            # sum_cores += round_core
             ana_config['core_per_node'] = round_core
             # Compute execution time
             time_a = ana_config['time_seq'] / (round_nc_nodes * round_core)
             time_a +=  data_size / (round_nc_nodes * bandwidth)
             ana_config['time'] = time_a
             # print(sim, ana, core, round_core, time_a)
+        # print(f'Sum of cores : {sum_cores}')
+        if threshold > 0:
+            printf('Not sufficient resource for core allocation in non-co-scheduling')
+            config['unfeasible'] = []
+            with open(output_file, 'w') as file:
+                yaml.dump(config, file)
+            return False
 
     print('Number of nodes for non-co-scheduling : {}'.format(round_nc_nodes))
     # round_nc_nodes = nc_nodes
     # Compute n^{C}
     c_nodes = nodes - round_nc_nodes
     print('Number of nodes for co-scheduling : {} '.format(c_nodes))
-    
+    if c_nodes < 1:
+        print(f'Cannot assign zero node for co-scheduling')
+        config['unfeasible'] = []
+        with open(output_file, 'w') as file:
+            yaml.dump(config, file)
+        return False
+        
     # Co-scheduling
     config['allocations'] = {}
     start_node = 0
@@ -249,6 +268,7 @@ def allocate(config_file, output_file, round_up=True):
     # print(sorted_c_seq_dict)
     threshold = len(sorted_c_seq_dict) - num_int_nodes - c_nodes + sum_c_nodes_rd
     # print(threshold)
+    # sum_nodes = 0
     for sim, numerator in sorted_c_seq_dict:
         node = config['allocations'][sim]['node']
         if node.is_integer():
@@ -262,7 +282,7 @@ def allocate(config_file, output_file, round_up=True):
                     threshold -= 1
                 else:
                     round_node = math.ceil(node)
-        
+        # sum_nodes += round_node
         config['allocations'][sim]['node'] = round_node
         # config['allocations'][sim]['node_nr'] = node
         # print(sim, node, round_node)  
@@ -291,6 +311,7 @@ def allocate(config_file, output_file, round_up=True):
         # print(sorted_sim_seq_dict)
         sub_threshold = len(sorted_sim_seq_dict) - num_int_cores - cores + sum_sim_rd 
         # print(sub_threshold)
+        # sum_sub_cores = 0
         for sim_ana, time_seq in sorted_sim_seq_dict:
             sim, ana = sim_ana.split('_')
             # print(sim, ana)
@@ -312,12 +333,28 @@ def allocate(config_file, output_file, round_up=True):
                         sub_threshold -= 1
                     else:   
                         round_core = math.ceil(core)
+            # print(sub_threshold)
             
+            # sum_sub_cores += round_core
             core_per_node['core_per_node'] = round_core
             core_per_node['time'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * round_core)
             # core_per_node['time_nrc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * core)
             # core_per_node['time_nrnc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node_nr'] * core)
+        # print(f'Sum of cores of allocation {sim}: {sum_sub_cores}')
+        if sub_threshold > 0:
+            print(f'Not sufficient resource for core allocations in co-scheduling')
+            config['unfeasible'] = []
+            with open(output_file, 'w') as file:
+                yaml.dump(config, file)
+            return False
 
+    # print('Sum of nodes: {}'.format(sum_nodes))
+    if threshold > 0:
+        print(f'Not sufficient resource for node allocation in co-scheduling')
+        config['unfeasible'] = []
+        with open(output_file, 'w') as file:
+            yaml.dump(config, file)
+        return False
 
     start_node = 0
     for sim in simulations_config:
@@ -357,6 +394,8 @@ def allocate(config_file, output_file, round_up=True):
     # print(simulations_config)
     with open(output_file, 'w') as out_file:
         yaml.dump(config, out_file)
+    
+    return True
 
 def feasible(config_file, output_file):  
     with open(config_file, 'r') as file:
@@ -394,33 +433,40 @@ def feasible(config_file, output_file):
     return uf_allocs, config['makespan']
 
 if __name__ == "__main__":
-    heuristic = 'random'
-    input_fn = config_file
+    heuristic = 'increasing'
+    input_fn = 'initial.yml'
     # input_fn = 'feasible5'
     k = 1
     output_fn = 'log.schedule' + str(k)  
     min_makespan = float('inf')
     while True :
+        # print(f'schedule : {input_fn} -> {output_fn}')
         if not schedule(input_fn, output_fn, heuristic):
             print(f'Not able to schedule further')
             break
         
         input_fn = output_fn
+        temp_input_fn = None
         for method in ['up', 'down']:
             output_fn = 'log.allocate' + '_' + method + str(k)
             if method == 'up':
-                allocate(input_fn, output_fn, True)
+                round_up = True
             else: 
-                allocate(input_fn, output_fn, False)
-
-            unfeasible, makespan = feasible('log.allocate' + '_' + method + str(k), 'log.feasible' + '_' + method + str(k))
-            if not unfeasible:
-                print(f'Schedule is feasible, makespan: {makespan}')
-                # break
-                if makespan < min_makespan:
-                    min_makespan = makespan
-        
-        input_fn = 'log.feasible_up' + str(k)
+                round_up = False
+            # print(f'allocate {method}: {input_fn} -> {output_fn}')
+            if allocate(input_fn, output_fn, round_up):
+                # print(f'feasible: ')
+                unfeasible, makespan = feasible('log.allocate' + '_' + method + str(k), 'log.feasible' + '_' + method + str(k))
+                temp_input_fn = 'log.feasible' + '_' + method + str(k)
+                if not unfeasible:
+                    print(f'Schedule is feasible, makespan: {makespan}')
+                    # break
+                    if makespan < min_makespan:
+                        min_makespan = makespan
+        if temp_input_fn: 
+            input_fn = temp_input_fn
+        else:
+            input_fn = output_fn
         k += 1
         output_fn = 'log.schedule' + str(k)
         print('\n')
