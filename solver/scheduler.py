@@ -10,16 +10,37 @@ def heuristic_round(number):
     return round(number) 
 
 # Load yaml config file
-config_file = '../data/config.yml'
+config_file = 'initial.yml'
 output_file = 'result.yml'
 
+with open(config_file, 'r') as file:
+    config = yaml.safe_load(file)
+simulations_config = config['simulations']
+# Computational power per core (GFLOPs)
+speed = config['speed']
+# Number of cores per node
+cores = config['cores']
+# Memory bandwidth per node (GB/s)
+bandwidth = config['bandwidth']
+# Number of nodes
+nodes = config['nodes']
+# Memory capacity per node (GB)
+mem = config['memory']
+# print('Number of nodes : {}'.format(nodes))
+# print('Number of cores per node : {}'.format(cores))
+# print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
+# print('Computational power per core (GFLOPs) : {}'.format(speed))
+
 def schedule(config_file, output_file, heuristic="increasing"):
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)
+    # with open(config_file, 'r') as file:
+    #     config = yaml.safe_load(file)
     
-    simulations_config = config['simulations']
+    # simulations_config = config['simulations']
     if 'unfeasible' not in config:
         config['unfeasible'] = []
+        config['non-co-scheduling'] = {}
+        for sim in simulations_config:
+            config['non-co-scheduling'][sim] = []
     # print(simulations_config.keys())
     # if not config['unfeasible']:
     #     config['unfeasible'] = list(simulations_config.keys())
@@ -85,39 +106,46 @@ def schedule(config_file, output_file, heuristic="increasing"):
                     new_ana = subset_ana[0]
                 config['non-co-scheduling'][sim].append(new_ana)
     
-    with open(output_file, 'w') as file:
-        yaml.dump(config, file)
+    # with open(output_file, 'w') as file:
+    #     yaml.dump(config, file)
 
     return True
 
 def allocate(config_file, output_file, round_up=True):
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)
+    # with open(config_file, 'r') as file:
+    #     config = yaml.safe_load(file)
 
-    simulations_config = config['simulations']
+    # simulations_config = config['simulations']
 
-    # Computational power per core (GFLOPs)
-    speed = config['speed']
-    # Number of cores per node
-    cores = config['cores']
-    # Memory bandwidth per node (GB/s)
-    bandwidth = config['bandwidth']
-    # Number of nodes
-    nodes = config['nodes']
-    # print('Number of nodes : {}'.format(nodes))
-    # print('Number of cores per node : {}'.format(cores))
-    # print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
-    # print('Computational power per core (GFLOPs) : {}'.format(speed))
+    # # Computational power per core (GFLOPs)
+    # speed = config['speed']
+    # # Number of cores per node
+    # cores = config['cores']
+    # # Memory bandwidth per node (GB/s)
+    # bandwidth = config['bandwidth']
+    # # Number of nodes
+    # nodes = config['nodes']
+    # # print('Number of nodes : {}'.format(nodes))
+    # # print('Number of cores per node : {}'.format(cores))
+    # # print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
+    # # print('Computational power per core (GFLOPs) : {}'.format(speed))
 
-    ideal_sched = False
-    if 'non-co-scheduling' not in config:
-        ideal_sched = True
-        config['non-co-scheduling'] = {}
-        for sim in simulations_config:
-            config['non-co-scheduling'][sim] = []
+    ideal_sched = True
+    # if 'non-co-scheduling' not in config:
+    #     ideal_sched = True
+        # config['non-co-scheduling'] = {}
+        # for sim in simulations_config:
+        #     config['non-co-scheduling'][sim] = []
+
+    scheduling_config = config['non-co-scheduling']
+    # print(scheduling_config)
+    for sim in scheduling_config:
+        if len(scheduling_config[sim]):
+            ideal_sched = False
+            break 
         
     round_nc_nodes = 0
-    scheduling_config = config['non-co-scheduling']
+    
     # t(P^NC)
     time_nc_sum = 0
     # t(S)
@@ -158,18 +186,33 @@ def allocate(config_file, output_file, round_up=True):
         # Compute n^{NC}
         time_sum = time_s_sum + time_c_sum + time_nc_sum
         nc_nodes = nodes * (bandwidth * time_nc_sum + u) / (bandwidth * time_sum + u)
-        
-        # Heuristic to round n^{NC}
-        if round_up:
-            round_nc_nodes = math.ceil(nc_nodes)
+        round_nc_nodes = math.ceil(nc_nodes)
+        if nc_nodes > nodes-1:
+            print(f'Cannot round up num_nodes for non-co-scheduling to {nodes}')
+            round_nc_nodes = math.floor(nc_nodes)
         else:
             if nc_nodes < 1:
                 print(f'Cannot round down num_nodes for non-co-scheduling to 0')
-                config['unfeasible'] = []
-                with open(output_file, 'w') as file:
-                    yaml.dump(config, file)
-                return False 
-            round_nc_nodes = math.floor(nc_nodes)
+            else:
+                diff_up = max((time_s_sum + time_c_sum) / (nodes - math.ceil(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.ceil(nc_nodes)))
+                print(f'diff_up = {diff_up}')
+                diff_down = max((time_s_sum + time_c_sum) / (nodes - math.floor(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.floor(nc_nodes)))
+                print(f'diff_down = {diff_down}')
+                if diff_down < diff_up:
+                    round_nc_nodes = math.floor(nc_nodes)
+
+        
+        # # Heuristic to round n^{NC}
+        # if round_up:
+        #     round_nc_nodes = math.ceil(nc_nodes)
+        # else:
+        #     if nc_nodes < 1:
+        #         print(f'Cannot round down num_nodes for non-co-scheduling to 0')
+        #         config['unfeasible'] = []
+        #         with open(output_file, 'w') as file:
+        #             yaml.dump(config, file)
+        #         return False 
+        #     round_nc_nodes = math.floor(nc_nodes)
         print(f'nc_nodes = {nc_nodes}')
 
         # Resource allocation for P^NC
@@ -224,8 +267,8 @@ def allocate(config_file, output_file, round_up=True):
         if threshold > 0:
             printf('Not sufficient resource for core allocation in non-co-scheduling')
             config['unfeasible'] = []
-            with open(output_file, 'w') as file:
-                yaml.dump(config, file)
+            # with open(output_file, 'w') as file:
+            #     yaml.dump(config, file)
             return False
 
     print('Number of nodes for non-co-scheduling : {}'.format(round_nc_nodes))
@@ -236,8 +279,8 @@ def allocate(config_file, output_file, round_up=True):
     if c_nodes < 1:
         print(f'Cannot assign zero node for co-scheduling')
         config['unfeasible'] = []
-        with open(output_file, 'w') as file:
-            yaml.dump(config, file)
+        # with open(output_file, 'w') as file:
+        #     yaml.dump(config, file)
         return False
         
     # Co-scheduling
@@ -344,16 +387,16 @@ def allocate(config_file, output_file, round_up=True):
         if sub_threshold > 0:
             print(f'Not sufficient resource for core allocations in co-scheduling')
             config['unfeasible'] = []
-            with open(output_file, 'w') as file:
-                yaml.dump(config, file)
+            # with open(output_file, 'w') as file:
+            #     yaml.dump(config, file)
             return False
 
     # print('Sum of nodes: {}'.format(sum_nodes))
     if threshold > 0:
         print(f'Not sufficient resource for node allocation in co-scheduling')
         config['unfeasible'] = []
-        with open(output_file, 'w') as file:
-            yaml.dump(config, file)
+        # with open(output_file, 'w') as file:
+        #     yaml.dump(config, file)
         return False
 
     start_node = 0
@@ -392,19 +435,19 @@ def allocate(config_file, output_file, round_up=True):
     config['makespan'] = makespan * config['steps']
 
     # print(simulations_config)
-    with open(output_file, 'w') as out_file:
-        yaml.dump(config, out_file)
+    # with open(output_file, 'w') as out_file:
+    #     yaml.dump(config, out_file)
     
     return True
 
 def feasible(config_file, output_file):  
-    with open(config_file, 'r') as file:
-        config = yaml.safe_load(file)
-    simulations_config = config['simulations']
+    # with open(config_file, 'r') as file:
+    #     config = yaml.safe_load(file)
+    # simulations_config = config['simulations']
     scheduling_config = config['non-co-scheduling']
     allocations_config = config['allocations']
 
-    mem = config['memory']
+    # mem = config['memory']
 
     # Check if the configuration is feasible  
     uf_allocs = []
@@ -426,14 +469,14 @@ def feasible(config_file, output_file):
         uf_allocs.append('sim0')
 
     config['unfeasible'] = uf_allocs
-    with open(output_file, 'w') as file:
-        yaml.dump(config, file)
+    # with open(output_file, 'w') as file:
+    #     yaml.dump(config, file)
     
     print(uf_allocs)
     return uf_allocs, config['makespan']
 
 if __name__ == "__main__":
-    heuristic = 'increasing'
+    heuristic = 'decreasing'
     input_fn = 'initial.yml'
     # input_fn = 'feasible5'
     k = 1
@@ -447,26 +490,21 @@ if __name__ == "__main__":
         
         input_fn = output_fn
         temp_input_fn = None
-        for method in ['up', 'down']:
-            output_fn = 'log.allocate' + '_' + method + str(k)
-            if method == 'up':
-                round_up = True
-            else: 
-                round_up = False
-            # print(f'allocate {method}: {input_fn} -> {output_fn}')
-            if allocate(input_fn, output_fn, round_up):
-                # print(f'feasible: ')
-                unfeasible, makespan = feasible('log.allocate' + '_' + method + str(k), 'log.feasible' + '_' + method + str(k))
-                temp_input_fn = 'log.feasible' + '_' + method + str(k)
-                if not unfeasible:
-                    print(f'Schedule is feasible, makespan: {makespan}')
-                    # break
-                    if makespan < min_makespan:
-                        min_makespan = makespan
-        if temp_input_fn: 
-            input_fn = temp_input_fn
-        else:
-            input_fn = output_fn
+        output_fn = 'log.allocate' + str(k)
+        # print(f'allocate {method}: {input_fn} -> {output_fn}')
+        if allocate(input_fn, output_fn):
+            # print(f'feasible: ')
+            unfeasible, makespan = feasible('log.allocate' + str(k), 'log.feasible' + str(k))
+            if not unfeasible:
+                print(f'Schedule is feasible, makespan: {makespan}')
+                with open('log.feasible' + str(k), 'w') as file:
+                    yaml.dump(config, file)
+
+                if makespan < min_makespan:
+                    min_makespan = makespan
+                # break
+
+        input_fn = output_fn
         k += 1
         output_fn = 'log.schedule' + str(k)
         print('\n')
