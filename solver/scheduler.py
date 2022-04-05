@@ -31,10 +31,27 @@ mem = config['memory']
 # print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
 # print('Computational power per core (GFLOPs) : {}'.format(speed))
 
+def sublist(l):  
+    result = [[ ]]   
+    for i in range(len(l) + 1):    
+        for j in range(i + 1, len(l) + 1):         
+            result.append(l[i:j]) 
+    return result
+
+ac = []
+for sim in simulations_config:
+    for ana in simulations_config[sim]['coupling']:
+        ac.append(sim + '_' + ana)
+sub_ac = sublist(ac)
+print(sub_ac)
+track = 0
+
+
 def schedule(config_file, output_file, heuristic="increasing"):
     # with open(config_file, 'r') as file:
     #     config = yaml.safe_load(file)
-    
+    global track
+    print(f'track: {track}')    
     # simulations_config = config['simulations']
     if 'unfeasible' not in config:
         config['unfeasible'] = []
@@ -46,42 +63,54 @@ def schedule(config_file, output_file, heuristic="increasing"):
     #     config['unfeasible'] = list(simulations_config.keys())
     else:
         if not config['unfeasible'] or config['unfeasible'] == ['sim0']:
-            picked_sim = None
-            picked_ana = None
-            if heuristic == "increasing":
-                picked_flop = float('inf')
-            elif heuristic == 'decreasing':
-                picked_flop = float('-inf')
-            else:
-                picked_anas = []
-            for sim in simulations_config:
-                for ana in simulations_config[sim]['coupling']:
-                    if ana not in config['non-co-scheduling'][sim]:
-                        ana_flop = simulations_config[sim]['coupling'][ana]['flop']
-                        if heuristic == "increasing":
-                            if ana_flop <= picked_flop:
-                                picked_sim = sim
-                                picked_ana = ana
-                                picked_flop = ana_flop
-                        elif heuristic == "decreasing":
-                            if ana_flop >= picked_flop:
-                                picked_sim = sim
-                                picked_ana = ana
-                                picked_flop = ana_flop
-                        else:
-                            picked_anas.append((sim, ana))
-            
-            if heuristic == "increasing" or heuristic == "decreasing":
-                if not picked_sim:
-                    print(f'sim0 has no feasible scheduling')
+            if heuristic == 'brute-force': 
+                # global track
+                if track == len(sub_ac):
+                    print('sim0 has no feasible scheduling')
                     return False
+                print(track, sub_ac[track])
+                for sim_ana in sub_ac[track]:
+                    sim, ana = sim_ana.split('_')
+                    config['non-co-scheduling'][sim].append(ana)
+                
             else:
-                if not picked_anas:
-                    print(f'sim0 has no feasible scheduling')
-                    return False
-                (picked_sim, picked_ana) = random.choice(picked_anas)
+                picked_sim = None
+                picked_ana = None
+                if heuristic == "increasing":
+                    picked_flop = float('inf')
+                elif heuristic == 'decreasing':
+                    picked_flop = float('-inf')
+                else:
+                    picked_anas = []
+                for sim in simulations_config:
+                    for ana in simulations_config[sim]['coupling']:
+                        if ana not in config['non-co-scheduling'][sim]:
+                            ana_flop = simulations_config[sim]['coupling'][ana]['flop']
+                            if heuristic == "increasing":
+                                if ana_flop <= picked_flop:
+                                    picked_sim = sim
+                                    picked_ana = ana
+                                    picked_flop = ana_flop
+                            elif heuristic == "decreasing":
+                                if ana_flop >= picked_flop:
+                                    picked_sim = sim
+                                    picked_ana = ana
+                                    picked_flop = ana_flop
+                            else:
+                                picked_anas.append((sim, ana))
+                
+                if heuristic == "increasing" or heuristic == "decreasing":
+                    if not picked_sim:
+                        print(f'sim0 has no feasible scheduling')
+                        return False
+                else:
+                    if not picked_anas:
+                        print(f'sim0 has no feasible scheduling')
+                        return False
+                    (picked_sim, picked_ana) = random.choice(picked_anas)
+                
+                config['non-co-scheduling'][picked_sim].append(picked_ana)
             
-            config['non-co-scheduling'][picked_sim].append(picked_ana)
                         
 
         for sim in config['unfeasible']:
@@ -105,6 +134,8 @@ def schedule(config_file, output_file, heuristic="increasing"):
                 else:
                     new_ana = subset_ana[0]
                 config['non-co-scheduling'][sim].append(new_ana)
+    
+    track += 1
     
     # with open(output_file, 'w') as file:
     #     yaml.dump(config, file)
@@ -475,8 +506,7 @@ def feasible(config_file, output_file):
     print(uf_allocs)
     return uf_allocs, config['makespan']
 
-if __name__ == "__main__":
-    heuristic = 'decreasing'
+def heuristic(heuristic='increasing'):
     input_fn = 'initial.yml'
     # input_fn = 'feasible5'
     k = 1
@@ -510,3 +540,43 @@ if __name__ == "__main__":
         print('\n')
 
     print(f'Minimal makespan: {min_makespan}')
+
+def brute_force(heuristic='brute-force'):
+    input_fn = 'initial.yml'
+    # input_fn = 'feasible5'
+    k = 1
+    output_fn = 'log.schedule' + str(k)  
+    min_makespan = float('inf')
+    while True :
+        # print(f'schedule : {input_fn} -> {output_fn}')
+        if not schedule(input_fn, output_fn, heuristic):
+            print(f'Not able to schedule further')
+            break
+        
+        input_fn = output_fn
+        temp_input_fn = None
+        output_fn = 'log.allocate' + str(k)
+        # print(f'allocate {method}: {input_fn} -> {output_fn}')
+        if allocate(input_fn, output_fn):
+            # print(f'feasible: ')
+            unfeasible, makespan = feasible('log.allocate' + str(k), 'log.feasible' + str(k))
+            if not unfeasible:
+                print(f'Schedule is feasible, makespan: {makespan}')
+                with open('log.feasible' + str(k), 'w') as file:
+                    yaml.dump(config, file)
+
+                if makespan < min_makespan:
+                    min_makespan = makespan
+                # break
+
+        input_fn = output_fn
+        k += 1
+        output_fn = 'log.schedule' + str(k)
+        print('\n')
+
+    print(f'Minimal makespan: {min_makespan}')    
+
+if __name__ == "__main__":
+    # heuristic()
+    brute_force()
+    
