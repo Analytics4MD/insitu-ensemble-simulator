@@ -10,29 +10,15 @@
 
         <!-- The compute host -->
         <host id="ComputeHost1" speed="36.8Gf" core="32">
-            <disk id="local_disk" read_bw="1000GBps" write_bw="1000GBps">
-                <prop id="size" value="5000GiB"/>
+            <disk id="local_disk" read_bw="100GBps" write_bw="100GBps">
+                <prop id="size" value="50000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
             <prop id="ram" value="128GB" />
         </host>
         <host id="ComputeHost2" speed="36.8Gf" core="32">
-            <disk id="local_disk" read_bw="1000GBps" write_bw="1000GBps">
-                <prop id="size" value="5000GiB"/>
-                <prop id="mount" value="/"/>
-            </disk>
-            <prop id="ram" value="128GB" />
-        </host>
-        <host id="ComputeHost3" speed="36.8Gf" core="32">
-            <disk id="local_disk" read_bw="1000GBps" write_bw="1000GBps">
-                <prop id="size" value="5000GiB"/>
-                <prop id="mount" value="/"/>
-            </disk>
-            <prop id="ram" value="128GB" />
-        </host>
-        <host id="ComputeHost4" speed="36.8Gf" core="32">
-            <disk id="local_disk" read_bw="1000GBps" write_bw="1000GBps">
-                <prop id="size" value="5000GiB"/>
+            <disk id="local_disk" read_bw="100GBps" write_bw="100GBps">
+                <prop id="size" value="50000GiB"/>
                 <prop id="mount" value="/"/>
             </disk>
             <prop id="ram" value="128GB" />
@@ -44,14 +30,7 @@
         <!-- Network routes -->
         <route src="UserHost" dst="ComputeHost1"> <link_ctn id="shared_network"/> </route>
         <route src="UserHost" dst="ComputeHost2"> <link_ctn id="shared_network"/> </route>
-        <route src="UserHost" dst="ComputeHost3"> <link_ctn id="shared_network"/> </route>
-        <route src="UserHost" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
         <route src="ComputeHost1" dst="ComputeHost2"> <link_ctn id="shared_network"/> </route>
-        <route src="ComputeHost1" dst="ComputeHost3"> <link_ctn id="shared_network"/> </route>
-        <route src="ComputeHost1" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
-        <route src="ComputeHost2" dst="ComputeHost3"> <link_ctn id="shared_network"/> </route>
-        <route src="ComputeHost2" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
-        <route src="ComputeHost3" dst="ComputeHost4"> <link_ctn id="shared_network"/> </route>
 
     </zone>
 </platform>

@@ -1,35 +1,37 @@
-# Number of nodes
-nodes: 4
-# Number of physical cores per node
+allocations:
+  sim0:
+    end: 1
+    node: 1
+    start: 1
+  sim1:
+    end: 0
+    node: 1
+    start: 0
+bandwidth: 6
 cores: 32
-# Memory bandwidth per node (GB/s)
-bandwidth: 460
-# Memory capacity per node (GB)
+makespan: 0.7773969655797102
 memory: 128
-# Computational power per core (GFLOPs)
-speed: 36.8
-# Number of steps
-steps: 10
-simulations:
-    sim1:
-        # Memory usage
-        mem: 500
-        flop: 5
-        # Data size (GB)
-        data: 1
-        coupling:
-            ana1:
-                alloc: 
-                mem:
-                flop: 2 
-            ana2:
-                alloc: 
-                mem:
-                flop: 1 
-            ana3:
-                alloc: 
-                mem: 
-                flop: 3
+nodes: 2
 non-co-scheduling:
-    sim1: [ana3]
-
+  sim1:
+  - ana1
+simulations:
+  sim1:
+    alloc: sim1
+    core_per_node: 32
+    coupling:
+      ana1:
+        alloc: sim0
+        core_per_node: 32
+        flop: 130.396
+        mem: 32.0
+        time: 0.7773969655797102
+        time_seq: 3.5433695652173913
+    data: 4
+    flop: 491.298
+    mem: 31.7
+    time: 0.417202785326087
+    time_seq: 13.350489130434784
+speed: 36.8
+steps: 1
+unfeasible: []
