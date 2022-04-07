@@ -180,6 +180,24 @@ namespace wrench {
                                 data_read_job->addFileReadAction("data_read_" + std::to_string(simulation_storage_node), input_data, wrench::FileLocation::LOCATION(analysis_storage));
                             }
                         }
+
+                        // if (analysis_allocation == simulation_allocation) {
+                        //     /* The analysis is co-scheduled with the coupled simulation */
+                        //     double analysis_data_size = simulation_data_size;
+                        //     auto input_data = wrench::Simulation::getFileByID("member_" + simulation_name + "_output_data_step_" + std::to_string(step) + "_node_" + std::to_string(node));
+                        //     auto analysis_storage = this->storage_services[node];
+                        //     // analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                        //     data_read_job->addFileReadAction("data_read", input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                        // } else {
+                        //     /* The analysis is not co-scheduled with the coupled simulation */
+                        //     double analysis_data_size = simulation_data_size / analysis_num_nodes;
+                        //     for (int simulation_storage_node = simulation_node_start; simulation_storage_node <= simulation_node_end; simulation_storage_node++) {
+                        //         auto input_data = wrench::Simulation::getFileByID("member_" + simulation_name + "_output_data_step_" + std::to_string(step) + "_node_" + std::to_string(simulation_storage_node));
+                        //         auto analysis_storage = this->storage_services[simulation_storage_node];
+                        //         // analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
+                        //         data_read_job->addFileReadAction("data_read_" + std::to_string(simulation_storage_node), input_data, wrench::FileLocation::LOCATION(analysis_storage), analysis_data_size);
+                        //     }
+                        // }
                         /* Reading stage succeeds the analyzing stage of the previous iteration */
                         if (step > 1)
                             data_read_job->addParentJob(analysis_jobs[k][node - analysis_node_start]);

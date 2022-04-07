@@ -58,8 +58,8 @@ int main(int argc, char **argv) {
         /* Instantiate a storage service on the platform */            
         auto storage_service = simulation->add(new wrench::SimpleStorageService(
             host_name, {"/"}, 
-            // {{wrench::SimpleStorageServiceProperty::BUFFER_SIZE, "infinity"}}, 
-            {},
+            {{wrench::SimpleStorageServiceProperty::BUFFER_SIZE, "infinity"}}, 
+            // {},
             {{wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_ANSWER_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_REQUEST_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_READ_ANSWER_MESSAGE_PAYLOAD, 0},
