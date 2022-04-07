@@ -10,7 +10,7 @@ An experimental simulator for workflow ensembles of simulations and in situ anal
 ## Prerequisites
 
 - [SimGrid](https://simgrid.org/)
-- [Wrench](https://wrench-project.org/)
+- [WRENCH](https://wrench-project.org/)
 - [yaml-cpp](https://github.com/jbeder/yaml-cpp)
 
 ## Installation
