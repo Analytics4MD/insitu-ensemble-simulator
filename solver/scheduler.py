@@ -34,7 +34,7 @@ print('Computational power per core (GFLOPs) : {}'.format(speed))
 print('Memory capacity per node (GB) : {}'.format(mem))
 
 def sublist(l):  
-    result = [[ ]]   
+    result = []  
     for i in range(0, len(l)+1):
         for subset in itertools.combinations(l, i):
             result.append(subset)
@@ -45,7 +45,7 @@ for sim in simulations_config:
     for ana in simulations_config[sim]['coupling']:
         ac.append(sim + '_' + ana)
 sub_ac = sublist(ac)
-# print(sub_ac)
+# print(sub_ac) 
 track = 0
 
 
@@ -588,7 +588,7 @@ def test(cosched_config):
 
 
 if __name__ == "__main__":
-    heuristic('brute-force')
+    heuristic('increasing')
     # cosched_config = {'sim1': ['ana8', 'ana7'], 'sim2': ['ana1', 'ana2'], 'sim3': []}
     # test(cosched_config)
     
