@@ -19,6 +19,8 @@
 #include <iostream>
 #include <wrench-dev.h>
 
+#include <yaml-cpp/yaml.h>
+
 #include "Controller.h"
 
 /**
@@ -37,18 +39,18 @@ int main(int argc, char **argv) {
     simulation->init(&argc, argv);
 
     /* Parsing of the command-line arguments */
-    if (argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <number of compute nodes> <yaml config file> <xml platform file> [--log=controller.threshold=info | --wrench-full-log]" << std::endl;
+    if (argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <yaml config file> <xml platform file> [--log=controller.threshold=info | --wrench-full-log]" << std::endl;
         exit(1);
     }
 
     /* Instantiating the simulated platform */
     std::cerr << "Instantiating simulated platform..." << std::endl;
-    simulation->instantiatePlatform(argv[3]);
+    simulation->instantiatePlatform(argv[2]);
 
-    int num_nodes = std::atoi(argv[1]);
-    std::string config_file(argv[2]);
-
+    std::string config_file(argv[1]);
+    YAML::Node config = YAML::LoadFile(config_file);
+    int num_nodes = config["nodes"].as<int>();
 
     std::cerr << "Instantiating compute and storage services..." << std::endl;
     std::vector<std::shared_ptr<wrench::BareMetalComputeService>> compute_services;
