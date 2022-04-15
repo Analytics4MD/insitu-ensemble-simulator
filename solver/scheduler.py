@@ -49,7 +49,7 @@ sub_ac = sublist(ac)
 track = 0
 
 
-def schedule(config_file, output_file, heuristic="increasing"):
+def schedule(output_file, heuristic="increasing"):
     """
     Returns: True if it is feasible to continue co-scheduling, False otherwise.
     Continuously co-schedules simulations and analyses following given heuristic.
@@ -147,12 +147,13 @@ def schedule(config_file, output_file, heuristic="increasing"):
     
     track += 1
     
-    # with open(output_file, 'w') as file:
-    #     yaml.dump(config, file)
+    if output_file:
+        with open(output_file, 'w') as file:
+            yaml.dump(config, file)
 
     return True
 
-def allocate(config_file, output_file, round_up=True):
+def allocate(output_file, round_up=True):
     """
     Returns: True if it is feasible to compute integer resource allocation. Otherwise, False.
 
@@ -484,12 +485,13 @@ def allocate(config_file, output_file, round_up=True):
     config['makespan'] = makespan * config['steps']
 
     # print(simulations_config)
-    # with open(output_file, 'w') as out_file:
-    #     yaml.dump(config, out_file)
+    if output_file:
+        with open(output_file, 'w') as out_file:
+            yaml.dump(config, out_file)
     
     return True
 
-def feasible(config_file, output_file): 
+def feasible(output_file): 
     """
     Returns: list of co-scheduling allocations that cannot be sustained
 
@@ -525,8 +527,9 @@ def feasible(config_file, output_file):
         uf_allocs.append('sim0')
 
     config['unfeasible'] = uf_allocs
-    # with open(output_file, 'w') as file:
-    #     yaml.dump(config, file)
+    if output_file:
+        with open(output_file, 'w') as file:
+            yaml.dump(config, file)
     
     print(uf_allocs)
     return uf_allocs, config['makespan']
@@ -538,24 +541,21 @@ def heuristic(heuristic='increasing'):
     Parameter heuristic: either 'increasing' or 'decreasing' or 'random' or 'brute-force'
     """
 
-    input_fn = 'initial.yml'
     k = 1
     output_fn = 'log.schedule' + str(k)  
     min_makespan = float('inf')
     count = 1
     while True :
         # print(f'schedule : {input_fn} -> {output_fn}')
-        if not schedule(input_fn, output_fn, heuristic):
+        if not schedule(None, heuristic):
             print(f'Not able to schedule further')
             break
-        
-        input_fn = output_fn
-        temp_input_fn = None
+
         output_fn = 'log.allocate' + str(k)
         # print(f'allocate {method}: {input_fn} -> {output_fn}')
-        if allocate(input_fn, output_fn):
+        if allocate(None):
             # print(f'feasible: ')
-            unfeasible, makespan = feasible('log.allocate' + str(k), 'log.feasible' + str(k))
+            unfeasible, makespan = feasible(None)
             if not unfeasible:
                 print(f'Schedule is feasible, makespan: {makespan}')
                 with open('log.' + heuristic + str(count), 'w') as file:
@@ -565,7 +565,6 @@ def heuristic(heuristic='increasing'):
                     min_makespan = makespan
                 # break
 
-        input_fn = output_fn
         k += 1
         output_fn = 'log.schedule' + str(k)
         print('\n')
@@ -586,9 +585,43 @@ def test(cosched_config):
             with open('log.test', 'w') as file:
                 yaml.dump(config, file)
 
+def coschedule(output_file, heuristic='ideal', ratio=None):
+    config['non-co-scheduling'] = {}
+    for sim in simulations_config:
+        config['non-co-scheduling'][sim] = []
+    if heuristic != 'ideal':
+        if (heuristic == 'increasing' or heuristic == 'decreasing') and ratio is None:
+            print(f'Please specify the ratio for {heuristic}')
+            return    
+        anas = []
+        for sim in simulations_config:
+            for ana in simulations_config[sim]['coupling']:
+                ana_config = simulations_config[sim]['coupling'][ana]
+                anas.append((sim, ana))
+        print(anas)
+        if heuristic == 'transit':
+            picked_anas = anas
+        if heuristic == 'increasing':
+            k = int(len(anas) * ratio)
+            picked_anas = sorted(anas, key=lambda x: simulations_config[x[0]]['coupling'][x[1]]['flop'])[:k]
+            
+        if heuristic == 'decreasing':
+            k = int(len(anas) * ratio)
+            picked_anas = sorted(anas, key=lambda x: -simulations_config[x[0]]['coupling'][x[1]]['flop'], reverse=True)[:k]
+        
+        for sim,ana in picked_anas:
+            config['non-co-scheduling'][sim].append(ana)
+
+    if allocate(None):
+        print('Feasible to allocate')
+        print(f'Makespan: {config["makespan"]}')
+        with open(output_file, 'w') as file:
+            yaml.dump(config, file)
 
 if __name__ == "__main__":
-    heuristic('increasing')
+    # heuristic('increasing')
     # cosched_config = {'sim1': ['ana8', 'ana7'], 'sim2': ['ana1', 'ana2'], 'sim3': []}
     # test(cosched_config)
+    coschedule('test', 'transit')
+
     
