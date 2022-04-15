@@ -264,6 +264,11 @@ def allocate(output_file, round_up=True):
         #         return False 
         #     round_nc_nodes = math.floor(nc_nodes)
         print(f'nc_nodes = {nc_nodes}')
+        
+        if nodes - round_nc_nodes < len(simulations_config.keys()):
+            # We probably might want to return False here
+            print(f'Number of nodes for co-scheduling is less than the number of simulations')
+            round_nc_nodes = nodes - len(simulations_config.keys())
 
         # Resource allocation for P^NC
         nc_seq_dict = {}
@@ -622,6 +627,6 @@ if __name__ == "__main__":
     # heuristic('increasing')
     # cosched_config = {'sim1': ['ana8', 'ana7'], 'sim2': ['ana1', 'ana2'], 'sim3': []}
     # test(cosched_config)
-    coschedule('test', 'transit')
+    coschedule('test', 'decreasing', 0.2)
 
     
