@@ -6,12 +6,13 @@ import signal
 import math
 import random
 import itertools
+import sys
 
 def heuristic_round(number):
     return round(number) 
 
 # Load yaml config file
-config_file = 'initial.yml'
+config_file = sys.argv[1]
 output_file = 'result.yml'
 
 with open(config_file, 'r') as file:
@@ -627,6 +628,13 @@ if __name__ == "__main__":
     # heuristic('increasing')
     # cosched_config = {'sim1': ['ana8', 'ana7'], 'sim2': ['ana1', 'ana2'], 'sim3': []}
     # test(cosched_config)
-    coschedule('test', 'decreasing', 0.2)
+    heuristics = ['ideal', 'transit', 'increasing', 'decreasing']
+    ratios = [0.25, 0.5, 0.75]
+    for heuristic in heuristics:
+        if heuristic in ['increasing', 'decreasing']:
+            for ratio in ratios:
+                coschedule(f'{heuristic}_{ratio}.conf', heuristic, ratio)
+        else:
+            coschedule(f'{heuristic}.conf', heuristic)
 
     
