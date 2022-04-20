@@ -55,20 +55,15 @@ namespace wrench {
      * @throw std::runtime_error
      */
     int Controller::main() {
+        std::cerr << "Controller starting" << std::endl;
 
         /* Set the logging output to GREEN */
         TerminalOutput::setThisProcessLoggingColor(TerminalOutput::COLOR_GREEN);
-        WRENCH_INFO("Controller starting");
+        
 
         /* Pre-defined input parameters */
-        std::vector<std::vector<int>> allocation_map = {{0,0,1,2}}; 
-        std::vector<std::tuple<int, int>> cosched_allocations = {{0,1},{2,2},{3,3}};
-        // int num_nodes = 2;
-        // double data_size = 1 * GBYTE;
-        double compute_flops = 100 * GFLOP;
-        double compute_mem = 50 * MBYTE;
-        double analysis_flops = 100 * GFLOP;
-        double analysis_mem = 50 * MBYTE;
+        double compute_mem = 0;
+        double analysis_mem = 0;
 
         /* Amdahl alpha fraction. Setting this to 1 mean the task is perfectly parallel */
         double amdahl_fraction = 1.0;
@@ -97,8 +92,8 @@ namespace wrench {
             int simulation_core = i->second["core_per_node"].as<int>();
             double simulation_flop = i->second["flop"].as<double>() * GFLOP / simulation_num_nodes;
             int num_analyses = i->second["coupling"].size();
-            WRENCH_INFO("Simulation %s is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node writes %.2lf bytes", simulation_name.c_str(), simulation_allocation.c_str(), simulation_node_start, simulation_node_end, simulation_data_size);
-            WRENCH_INFO("Number of analyses coupled with simulation %s : %d", simulation_name.c_str(), num_analyses);
+            WRENCH_DEBUG("Simulation %s is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node writes %.2lf bytes", simulation_name.c_str(), simulation_allocation.c_str(), simulation_node_start, simulation_node_end, simulation_data_size);
+            WRENCH_DEBUG("Number of analyses coupled with simulation %s : %d", simulation_name.c_str(), num_analyses);
 
             std::vector<std::shared_ptr<wrench::CompoundJob>> data_write_jobs;
             data_write_jobs.reserve(simulation_num_nodes);
@@ -155,7 +150,7 @@ namespace wrench {
                     int analysis_core = j->second["core_per_node"].as<int>();
                     double analysis_flop = j->second["flop"].as<double>() * GFLOP / analysis_num_nodes;        
 
-                    WRENCH_INFO("Analysis %s (simulation %s) is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node reads %.2lf bytes", analysis_name.c_str(), simulation_name.c_str(), analysis_allocation.c_str(), analysis_node_start, analysis_node_end, analysis_total_data_size);
+                    WRENCH_DEBUG("Analysis %s (simulation %s) is co-scheduled on co-scheduling allocation %s from node %d to node %d, each node reads %.2lf bytes", analysis_name.c_str(), simulation_name.c_str(), analysis_allocation.c_str(), analysis_node_start, analysis_node_end, analysis_total_data_size);
 
                     for (int node = analysis_node_start; node <= analysis_node_end; node++) {
                         auto analysis_compute = this->compute_services[node];
@@ -225,116 +220,45 @@ namespace wrench {
                 }
             }
         }
-
-
-        // int num_simulations = allocation_map.size();
-        // int num_jobs = 0;
-
-        /* Define fine-grained stages for ensemble members */
-        // for (int i = 1; i <= num_simulations; i++) {
-        //     int simulation_allocation = allocation_map[i-1][0];
-        //     int simulation_node_start = std::get<0>(cosched_allocations[simulation_allocation]);
-        //     int simulation_node_end = std::get<1>(cosched_allocations[simulation_allocation]);
-        //     int simulation_num_nodes = simulation_node_end - simulation_node_start + 1;
-        //     double simulation_data_size = data_size / simulation_num_nodes;
-        //     int num_analyses = (allocation_map[i-1]).size()-1;
-
-        //     WRENCH_INFO("Simulation %d is co-scheduled on co-scheduling allocation %d from node %d to node %d, each node writes %.2lf bytes", i, simulation_allocation, simulation_node_start, simulation_node_end, simulation_data_size);
-
-        //     std::vector<std::shared_ptr<wrench::CompoundJob>> data_write_jobs;
-        //     data_write_jobs.reserve(simulation_num_nodes);
-        //     std::vector<std::shared_ptr<wrench::CompoundJob>> data_read_jobs;
-        //     std::vector<std::vector<std::shared_ptr<wrench::CompoundJob>>> analysis_jobs(num_analyses);
-        //     for (int step = 1; step <= this->num_steps; step++) {
-
-        //         // data_write_jobs.clear();
-                
-        //         for (int node = simulation_node_start; node <= simulation_node_end; node++) {
-        //             auto simulation_storage = this->storage_services[node];
-        //             auto simulation_compute = this->compute_services[node];
-
-        //             /* Computing stage */
-        //             // WRENCH_INFO("Creating a compound job %s with a file read action followed by a compute action", job->getName().c_str());
-        //             auto compute_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_compute_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-        //             compute_job->addComputeAction("compute", compute_flops, compute_mem, 1, 3, wrench::ParallelModel::AMDAHL(0.8));     
-        //             if (step > 1)
-        //                 compute_job->addParentJob(data_write_jobs[node-simulation_node_start]);       
-        //             job_manager->submitJob(compute_job, simulation_compute);
-
-        //             /* Writing stage */
-        //             auto output_data = wrench::Simulation::addFile("member_" + std::to_string(i) + "_output_data_step_" + std::to_string(step) + "_node_" + std::to_string(node), simulation_data_size);
-        //             auto data_write_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_data_write_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-        //             data_write_job->addFileWriteAction("data_write", output_data, wrench::FileLocation::LOCATION(simulation_storage));
-        //             data_write_job->addParentJob(compute_job);
-        //             for (auto & data_read_job : data_read_jobs) {
-        //                 data_write_job->addParentJob(data_read_job);
-        //             }
-        //             job_manager->submitJob(data_write_job, simulation_compute);
-        //             if (step > 1)
-        //                 data_write_jobs[node - simulation_node_start] = data_write_job;
-        //             else
-        //                 data_write_jobs.push_back(data_write_job);
-                    
-        //             num_jobs += 2;
-        //         }
-
-        //         data_read_jobs.clear();
-                
-        //         for (int j = 1; j <= num_analyses; j++) {
-                    
-        //             int analysis_allocation = allocation_map[i-1][j];
-        //             int analysis_node_start = std::get<0>(cosched_allocations[analysis_allocation]);
-        //             int analysis_node_end = std::get<1>(cosched_allocations[analysis_allocation]);
-        //             int analysis_num_nodes = (analysis_node_end - analysis_node_start + 1);
-        //             double analysis_data_size = data_size / analysis_num_nodes;
-
-        //             int analysis_storage_node = simulation_node_start;
-        //             WRENCH_INFO("Analysis %d (simulation %d) is co-scheduled on co-scheduling allocation %d from node %d to node %d, each node reads %.2lf bytes", j, i, analysis_allocation, analysis_node_start, analysis_node_end, analysis_data_size);
-        //             for (int node = analysis_node_start; node <= analysis_node_end; node++) {
-        //                 if (analysis_storage_node > simulation_node_end) 
-        //                     analysis_storage_node = simulation_node_start; 
-        //                 auto analysis_storage = this->storage_services[analysis_storage_node];
-        //                 auto analysis_compute = this->compute_services[node];
-
-        //                 /* Reading stage */
-        //                 auto input_data = wrench::Simulation::addFile("member_" + std::to_string(i) + "_" + std::to_string(j) + "_input_data_step_" + std::to_string(step) + "_node_" + std::to_string(node), analysis_data_size);
-        //                 analysis_storage->createFile(input_data, wrench::FileLocation::LOCATION(analysis_storage));
-        //                 auto data_read_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_" + std::to_string(j) + "_data_read_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-        //                 data_read_job->addFileReadAction("data_read", input_data, wrench::FileLocation::LOCATION(analysis_storage));
-        //                 if (step > 1)
-        //                     data_read_job->addParentJob(analysis_jobs[j-1][node - analysis_node_start]);
-        //                 for (auto & data_write_job : data_write_jobs) {
-        //                     data_read_job->addParentJob(data_write_job);
-        //                 }
-        //                 data_read_jobs.push_back(data_read_job);
-        //                 job_manager->submitJob(data_read_job, analysis_compute);
-
-        //                 /* Analyzing stage */
-        //                 auto analysis_job = job_manager->createCompoundJob("member_" + std::to_string(i) + "_" + std::to_string(j) + "_analysis_job_step_" + std::to_string(step) + "_node_" + std::to_string(node));
-        //                 analysis_job->addComputeAction("analysis", analysis_flops, analysis_mem, 1, 3, wrench::ParallelModel::AMDAHL(0.8));
-        //                 analysis_job->addParentJob(data_read_job);
-        //                 if (step > 1) 
-        //                     analysis_jobs[j-1][node - analysis_node_start] = analysis_job;
-        //                 else
-        //                     analysis_jobs[j-1].push_back(analysis_job);
-        //                 job_manager->submitJob(analysis_job, analysis_compute);
-
-        //                 analysis_storage_node++;
-        //                 num_jobs += 2;
-        //             }
-        //         }
-        //     }
-    
-        // }
-
+        int num_jobs_per_ten_percent = num_jobs / 10;
         for (int i = 1; i <= num_jobs; i++) {
             // WRENCH_INFO("Waiting for an execution event...");
-            this->waitForAndProcessNextEvent();
+            /*  Wait for an execution event and handle returned event */
+            // this->waitForAndProcessNextEvent();
+
+            /* Wait for next event without handling */
+            auto event = this->waitForNextEvent();
+            if (auto job_completion_event = std::dynamic_pointer_cast<wrench::CompoundJobCompletedEvent>(event)) {
+                auto completed_job = job_completion_event->job;
+                for (auto const &action: completed_job->getActions()) {
+                    fprintf(stdout, "%s, %s, %s, %s, %lu, %.2lf, %.4lf, %.4lf\n",
+                        completed_job->getName().c_str(),
+                        action->getName().c_str(),
+                        action->getExecutionHistory().top().execution_host.c_str(),
+                        action->getExecutionHistory().top().physical_execution_host.c_str(),
+                        action->getExecutionHistory().top().num_cores_allocated,
+                        action->getExecutionHistory().top().ram_allocated,
+                        action->getExecutionHistory().top().start_date,
+                        action->getExecutionHistory().top().end_date
+                        );
+                    if (i == num_jobs) {
+                        fprintf(stderr, "End time of the simulation: %.4lf\n", action->getExecutionHistory().top().end_date);
+                    }
+                    if (i == 1) {
+                        fprintf(stderr, "Start time of the simulation: %.4lf\n", action->getExecutionHistory().top().start_date);
+                    }
+                }
+            } else {
+                throw std::runtime_error("Unexpected event: " + event->toString());
+            }
+            if ((num_jobs_per_ten_percent > 0) && (i % num_jobs_per_ten_percent == 0)) {
+                fprintf(stderr, "%.2lf%% done\n", (double)i / num_jobs * 100);
+            }
         }
 
-        WRENCH_INFO("Execution complete!");
+        std::cerr << "Execution complete!" << std::endl;
 
-        WRENCH_INFO("Controller terminating");
+        std::cerr << "Controller terminating" << std::endl;
         return 0;
     }
 
