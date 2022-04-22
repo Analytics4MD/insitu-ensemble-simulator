@@ -41,11 +41,11 @@ def sublist(l):
             result.append(subset)
     return result
 
-ac = []
-for sim in simulations_config:
-    for ana in simulations_config[sim]['coupling']:
-        ac.append(sim + '_' + ana)
-sub_ac = sublist(ac)
+# ac = []
+# for sim in simulations_config:
+#     for ana in simulations_config[sim]['coupling']:
+#         ac.append(sim + '_' + ana)
+# sub_ac = sublist(ac)
 # print(sub_ac) 
 track = 0
 
@@ -229,10 +229,10 @@ def allocate(output_file, round_up=True):
                 ana_config = simulations_config[sim]['coupling'][ana]
                 equation += ana_config['time_seq']/(bandwidth * time_nc_sum + x - cores * data_size)
         u_sol = solveset(equation, x, domain=S.Reals)
-        print(u_sol)
+        # print(u_sol)
         lu = list(u_sol.args)
         u = float(lu[-1])
-        print("U = {}".format(u))
+        # print("U = {}".format(u))
 
         # Compute n^{NC}
         time_sum = time_s_sum + time_c_sum + time_nc_sum
@@ -246,9 +246,9 @@ def allocate(output_file, round_up=True):
                 print(f'Cannot round down num_nodes for non-co-scheduling to 0')
             else:
                 diff_up = max((time_s_sum + time_c_sum) / (nodes - math.ceil(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.ceil(nc_nodes)))
-                print(f'diff_up = {diff_up}')
+                # print(f'diff_up = {diff_up}')
                 diff_down = max((time_s_sum + time_c_sum) / (nodes - math.floor(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.floor(nc_nodes)))
-                print(f'diff_down = {diff_down}')
+                # print(f'diff_down = {diff_down}')
                 if diff_down < diff_up:
                     round_nc_nodes = math.floor(nc_nodes)
 
@@ -264,7 +264,7 @@ def allocate(output_file, round_up=True):
         #             yaml.dump(config, file)
         #         return False 
         #     round_nc_nodes = math.floor(nc_nodes)
-        print(f'nc_nodes = {nc_nodes}')
+        # print(f'nc_nodes = {nc_nodes}')
         
         if nodes - round_nc_nodes < len(simulations_config.keys()):
             # We probably might want to return False here
@@ -604,7 +604,7 @@ def coschedule(output_file, heuristic='ideal', ratio=None):
             for ana in simulations_config[sim]['coupling']:
                 ana_config = simulations_config[sim]['coupling'][ana]
                 anas.append((sim, ana))
-        print(anas)
+        # print(anas)
         if heuristic == 'transit':
             picked_anas = anas
         if heuristic == 'increasing':
@@ -633,8 +633,10 @@ if __name__ == "__main__":
     for heuristic in heuristics:
         if heuristic in ['increasing', 'decreasing']:
             for ratio in ratios:
-                coschedule(f'{heuristic}_{ratio}.conf', heuristic, ratio)
+                print(f'{heuristic} {ratio}')
+                coschedule(f'{heuristic}{ratio}.conf', heuristic, ratio)
         else:
+            print(f'{heuristic}')
             coschedule(f'{heuristic}.conf', heuristic)
-
+    print('\n')
     
