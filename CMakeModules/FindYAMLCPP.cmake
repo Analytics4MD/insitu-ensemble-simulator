@@ -44,12 +44,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_path(YAMLCPP_INCLUDE_DIR
         NAMES yaml-cpp/yaml.h
-        PATHS ${YAMLCPP_PATH}/include /opt/wrench/include
+        PATHS ${YAMLCPP_PATH}/include
         )
 
 find_library(YAMLCPP_LIBRARY
         NAMES yaml-cpp
-        PATHS ${WRENCH_PATH}/lib64 /opt/wrench/lib64
+	PATHS ${YAMLCPP_PATH}/lib64
         )
 
 
