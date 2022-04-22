@@ -62,7 +62,8 @@ int main(int argc, char **argv) {
             host_name, {"/"}, 
             {{wrench::SimpleStorageServiceProperty::BUFFER_SIZE, "infinity"}}, 
             // {},
-            {{wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_ANSWER_MESSAGE_PAYLOAD, 0},
+            {
+            {wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_ANSWER_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_WRITE_REQUEST_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_READ_ANSWER_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_READ_REQUEST_MESSAGE_PAYLOAD, 0},
@@ -71,7 +72,12 @@ int main(int argc, char **argv) {
             {wrench::SimpleStorageServiceMessagePayload::FILE_COPY_ANSWER_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_COPY_REQUEST_MESSAGE_PAYLOAD, 0},
             {wrench::SimpleStorageServiceMessagePayload::FILE_DELETE_ANSWER_MESSAGE_PAYLOAD, 0},
-            {wrench::SimpleStorageServiceMessagePayload::FILE_DELETE_REQUEST_MESSAGE_PAYLOAD, 0}}
+            {wrench::SimpleStorageServiceMessagePayload::FILE_DELETE_REQUEST_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FILE_NOT_FOUND_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FREE_SPACE_ANSWER_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::FREE_SPACE_REQUEST_MESSAGE_PAYLOAD, 0},
+            {wrench::SimpleStorageServiceMessagePayload::NOT_ENOUGH_STORAGE_SPACE_MESSAGE_PAYLOAD, 0}
+            }
             ));
         storage_services.push_back(storage_service);
 
@@ -95,6 +101,17 @@ int main(int argc, char **argv) {
         return 1;
     }
     std::cerr << "Simulation done!" << std::endl;
+
+    // /* Simulation results can be examined via simulation->getOutput(), which provides access to traces
+    //  * of events. In the code below, we print the  retrieve the trace of all task completion events, print how
+    //  * many such events there are, and print some information for the first such event. */
+    // auto trace = simulation->getOutput().getTrace<wrench::SimulationTimestampTaskCompletion>();
+    // for (auto const &item: trace) {
+    //     std::cerr << "Task " << item->getContent()->getTask()->getID() << " completed at time " << item->getDate() << " on host " << item->getContent()->getTask()->getExecutionHost() << std::endl;
+    // }
+    // simulation->getOutput().enableBandwidthTimestamps(true);
+    // simulation->getOutput().dumpLinkUsageJSON("link_usage.json");
+    // simulation->getOutput().dumpDiskOperationsJSON("disk_operations.json");
 
     return 0;
 }
