@@ -613,7 +613,7 @@ def coschedule(output_file, heuristic='ideal', ratio=None):
             
         if heuristic == 'decreasing':
             k = int(len(anas) * ratio)
-            picked_anas = sorted(anas, key=lambda x: -simulations_config[x[0]]['coupling'][x[1]]['flop'], reverse=True)[:k]
+            picked_anas = sorted(anas, key=lambda x: simulations_config[x[0]]['coupling'][x[1]]['flop'], reverse=True)[:k]
         
         for sim,ana in picked_anas:
             config['non-co-scheduling'][sim].append(ana)
