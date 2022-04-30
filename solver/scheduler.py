@@ -154,7 +154,189 @@ def schedule(output_file, heuristic="increasing"):
 
     return True
 
-def allocate(output_file, round_up=True):
+def near_allocate(output_file):
+    scheduling_config = config['non-co-scheduling']
+    config['allocations'] = {}
+    allocation_config = config['allocations']
+    time_sum = 0
+    time_nc_sum = 0
+    
+    for sim in simulations_config:
+        allocation_config[sim] = {}
+        time_s_seq = simulations_config[sim]['time_seq']
+        time_sum += time_s_seq
+        time_c_sum = time_s_seq
+        simulations_config[sim]['alloc'] = sim
+        for ana in simulations_config[sim]['coupling']:
+            ana_config = simulations_config[sim]['coupling'][ana]
+            time_a_seq = ana_config['time_seq']
+            if ana in scheduling_config[sim]:
+                ana_config['alloc'] = 'sim0'
+                time_nc_sum += time_a_seq
+            else:
+                ana_config['alloc'] = sim
+                time_c_sum += time_a_seq
+            time_sum += time_a_seq
+        allocation_config[sim]['time_sum'] = time_c_sum
+        print(time_c_sum)
+    print(f'time_sum = {time_sum}')
+    print(f'time_nc_sum = {time_nc_sum}')
+
+    allocation_config['sim0'] = {}
+    allocation_config['sim0']['time_sum'] = time_nc_sum
+    allocation_config['sim0']['node'] = time_nc_sum * nodes / time_sum
+    num_int_nodes = 0
+    if allocation_config['sim0']['node'].is_integer():
+        num_int_nodes += 1
+    sum_node_rd = math.floor(allocation_config['sim0']['node'])
+    for sim in simulations_config:
+        time_s_seq = simulations_config[sim]['time_seq']
+        time_c_sum = allocation_config[sim]['time_sum']
+        simulations_config[sim]['core'] = time_s_seq * cores / time_c_sum
+        for ana in simulations_config[sim]['coupling']:
+            ana_config = simulations_config[sim]['coupling'][ana]
+            time_a_seq = ana_config['time_seq'] 
+            if ana in scheduling_config[sim]:
+                ana_config['core'] = time_a_seq * cores / time_nc_sum
+            else:
+                ana_config['core'] = time_a_seq * cores / time_c_sum
+        node = time_c_sum * nodes / time_sum
+        if node.is_integer():
+            num_int_nodes += 1
+        sum_node_rd += math.floor(node)
+        allocation_config[sim]['node'] = node
+
+    sorted_alloc = sorted(allocation_config.keys(), key=lambda item: allocation_config[item]['time_sum'])
+    print(sorted_alloc)
+    threshold = len(sorted_alloc) - num_int_nodes - nodes + sum_node_rd
+    print(threshold)
+    track = len(sorted_alloc) - 1
+    for alloc in sorted_alloc:
+        node = allocation_config[alloc]['node']
+        if node.is_integer():
+            round_node = int(node)
+        else:
+            if node < 1: 
+                round_node = math.ceil(node)
+            else:
+                if threshold > 0:
+                    if track > 0:
+                        round_node = math.floor(node)
+                        threshold -= 1
+                    else:
+                        round_node = math.floor(node) - threshold + 1
+                        threshold = 0
+                else:
+                    round_node = math.ceil(node)
+        allocation_config[alloc]['node'] = round_node
+        allocation_config[alloc]['original_node'] = node
+        track -= 1
+    if threshold > 0:
+        print(f'Not sufficient resource for node allocation')
+        config['unfeasible'] = []
+        return False
+
+    for sim in simulations_config:
+        c_dict = {}
+        num_int_cores = 0
+        c_dict[sim + '_'] = simulations_config[sim]['time_seq']
+        core = simulations_config[sim]['core']
+        if core.is_integer():
+            num_int_cores += 1
+        sum_core_rd = math.floor(core)
+        for ana in simulations_config[sim]['coupling']:
+            ana_config = simulations_config[sim]['coupling'][ana]
+            if ana not in scheduling_config[sim]:
+                c_dict[sim + '_' + ana] = ana_config['time_seq']
+                core = ana_config['core']
+                if core.is_integer():
+                    num_int_cores += 1
+                sum_core_rd += math.floor(core)
+
+        sorted_c_dict = sorted(c_dict.items(), key=lambda item: item[1])
+        threshold = len(sorted_c_dict) - num_int_cores - cores + sum_core_rd
+        print(threshold)
+        track = len(sorted_c_dict) - 1
+        for sim_ana, time_seq in sorted_c_dict:
+            sim, ana = sim_ana.split('_')
+            if ana:
+                core_config = simulations_config[sim]['coupling'][ana]
+            else:
+                core_config = simulations_config[sim]
+            core = core_config['core']
+            if core.is_integer():
+                round_core = int(core)
+            else:
+                if core < 1: 
+                    round_core = math.ceil(core)
+                else:
+                    if threshold > 0:
+                        if track > 0:
+                            round_core = math.floor(core)
+                            threshold -= 1
+                        else:
+                            round_core = math.floor(core) - threshold + 1
+                            threshold = 0
+                    else:
+                        round_core = math.ceil(core)
+            core_config['core'] = round_core
+            core_config['original_core'] = core
+            track -= 1
+        if threshold > 0:
+            print(f'Not sufficient resource for core allocation of {sim}')
+            config['unfeasible'] = []
+            return False
+    
+    nc_dict = {}
+    num_int_cores = 0
+    sum_core_rd = 0
+    for sim in scheduling_config:
+        for ana in scheduling_config[sim]:
+            nc_dict[sim + '_' + ana] = simulations_config[sim]['coupling'][ana]['time_seq']
+            core = simulations_config[sim]['coupling'][ana]['core']
+            if core.is_integer():
+                num_int_cores += 1
+            sum_core_rd += math.floor(core)
+    sorted_nc_dict = sorted(nc_dict.items(), key=lambda item: item[1])
+    print(sorted_nc_dict)
+    threshold = len(sorted_nc_dict) - num_int_cores - cores + sum_core_rd
+    print(threshold)
+    track = len(sorted_nc_dict) - 1
+    for sim_ana, time_seq in sorted_nc_dict:
+        sim, ana = sim_ana.split('_')
+        core = simulations_config[sim]['coupling'][ana]['core']
+        if core.is_integer():
+            round_core = int(core)
+        else:
+            if core < 1: 
+                round_core = math.ceil(core)
+            else:
+                if threshold > 0:
+                    if track > 0:
+                        round_core = math.floor(core)
+                        threshold -= 1
+                    else:
+                        round_core = math.floor(core) - threshold + 1
+                        threshold = 0
+                else:
+                    round_core = math.ceil(core)
+        simulations_config[sim]['coupling'][ana]['core'] = round_core
+        simulations_config[sim]['coupling'][ana]['original_core'] = core
+        track -= 1
+    if threshold > 0:
+        print(f'Not sufficient resource for core allocation of sim0')
+        config['unfeasible'] = []
+        return False
+
+    if output_file:
+        with open(output_file, 'w') as out_file:
+            yaml.dump(config, out_file)
+    
+    return True
+        
+
+
+def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic='model'):
     """
     Returns: True if it is feasible to compute integer resource allocation. Otherwise, False.
 
@@ -195,8 +377,6 @@ def allocate(output_file, round_up=True):
             ideal_sched = False
             break 
         
-    round_nc_nodes = 0
-    
     # t(P^NC)
     time_nc_sum = 0
     # t(S)
@@ -219,6 +399,8 @@ def allocate(output_file, round_up=True):
                 ana_config['alloc'] = sim
                 time_c_sum += time_a_seq
 
+    num_sims = len(simulations_config.keys())
+    round_nc_nodes = 0
     if not ideal_sched:
         print('not ideal scheduling')
         # Solve Equation 25
@@ -233,99 +415,124 @@ def allocate(output_file, round_up=True):
         lu = list(u_sol.args)
         u = float(lu[-1])
         # print("U = {}".format(u))
-
-        # Compute n^{NC}
-        time_sum = time_s_sum + time_c_sum + time_nc_sum
-        nc_nodes = nodes * (bandwidth * time_nc_sum + u) / (bandwidth * time_sum + u)
-        round_nc_nodes = math.ceil(nc_nodes)
-        if nc_nodes > nodes-1:
-            print(f'Cannot round up num_nodes for non-co-scheduling to {nodes}')
-            round_nc_nodes = math.floor(nc_nodes)
-        else:
-            if nc_nodes < 1:
-                print(f'Cannot round down num_nodes for non-co-scheduling to 0')
+        if node_heuristic == 'model':
+            # Compute n^{NC}
+            time_sum = time_s_sum + time_c_sum + time_nc_sum
+            nc_nodes = nodes * (bandwidth * time_nc_sum + u) / (bandwidth * time_sum + u)
+            round_nc_nodes = math.ceil(nc_nodes)
+            if nc_nodes > nodes-1:
+                print(f'Cannot round up num_nodes for non-co-scheduling to {nodes}')
+                round_nc_nodes = math.floor(nc_nodes)
             else:
-                diff_up = max((time_s_sum + time_c_sum) / (nodes - math.ceil(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.ceil(nc_nodes)))
-                # print(f'diff_up = {diff_up}')
-                diff_down = max((time_s_sum + time_c_sum) / (nodes - math.floor(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.floor(nc_nodes)))
-                # print(f'diff_down = {diff_down}')
-                if diff_down < diff_up:
-                    round_nc_nodes = math.floor(nc_nodes)
+                if nc_nodes < 1:
+                    print(f'Cannot round down num_nodes for non-co-scheduling to 0')
+                else:
+                    diff_up = max((time_s_sum + time_c_sum) / (nodes - math.ceil(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.ceil(nc_nodes)))
+                    # print(f'diff_up = {diff_up}')
+                    diff_down = max((time_s_sum + time_c_sum) / (nodes - math.floor(nc_nodes)), (bandwidth * time_nc_sum + u) / (bandwidth * math.floor(nc_nodes)))
+                    # print(f'diff_down = {diff_down}')
+                    if diff_down < diff_up:
+                        round_nc_nodes = math.floor(nc_nodes)
+            
+            # # Heuristic to round n^{NC}
+            # if round_up:
+            #     round_nc_nodes = math.ceil(nc_nodes)
+            # else:
+            #     if nc_nodes < 1:
+            #         print(f'Cannot round down num_nodes for non-co-scheduling to 0')
+            #         config['unfeasible'] = []
+            #         with open(output_file, 'w') as file:
+            #             yaml.dump(config, file)
+            #         return False 
+            #     round_nc_nodes = math.floor(nc_nodes)
+            # print(f'nc_nodes = {nc_nodes}')
+        else:
+            even_nodes = nodes / (num_sims + 1)
+            # print(f'even_nodes = {even_nodes}')
+            round_nc_nodes = nodes - math.floor(even_nodes) * num_sims
 
-        
-        # # Heuristic to round n^{NC}
-        # if round_up:
-        #     round_nc_nodes = math.ceil(nc_nodes)
-        # else:
-        #     if nc_nodes < 1:
-        #         print(f'Cannot round down num_nodes for non-co-scheduling to 0')
-        #         config['unfeasible'] = []
-        #         with open(output_file, 'w') as file:
-        #             yaml.dump(config, file)
-        #         return False 
-        #     round_nc_nodes = math.floor(nc_nodes)
-        # print(f'nc_nodes = {nc_nodes}')
-        
-        if nodes - round_nc_nodes < len(simulations_config.keys()):
+        # print(f'round_nc_nodes = {round_nc_nodes}')
+        if nodes - round_nc_nodes < num_sims:
             # We probably might want to return False here
-            print(f'Number of nodes for co-scheduling is less than the number of simulations')
-            round_nc_nodes = nodes - len(simulations_config.keys())
+            print(f'Number of nodes for co-scheduling cannot be less than the number of simulations')
+            round_nc_nodes = nodes - num_sims
 
         # Resource allocation for P^NC
-        nc_seq_dict = {}
-        sum_core_rd = 0
-        num_int_cores = 0
-        for sim in scheduling_config:
-            data_size = simulations_config[sim]['data']
-            for ana in scheduling_config[sim]:
+        if core_heuristic == 'model':
+            nc_seq_dict = {}
+            sum_core_rd = 0
+            num_int_cores = 0
+            for sim in scheduling_config:
+                data_size = simulations_config[sim]['data']
+                for ana in scheduling_config[sim]:
+                    ana_config = simulations_config[sim]['coupling'][ana]
+                    core = bandwidth * cores * ana_config['time_seq']/(bandwidth * time_nc_sum + u - cores * data_size)
+                    nc_seq_dict[sim + '_' + ana] = ana_config['time_seq']
+                    if core.is_integer():
+                        num_int_cores += 1
+                    sum_core_rd += math.floor(core)
+                    ana_config['core_per_node'] = core
+                    time_a = ana_config['time_seq'] / (round_nc_nodes * core)
+                    time_a +=  data_size / (round_nc_nodes * bandwidth)
+                    # ana_config['time_nr'] = time_a 
+            
+            # Heuristic to round c^{NC}: Round up c_A of analyses A with greater t(A)  
+            # Sort by analysis sequential time
+            sorted_nc_seq_dict = sorted(nc_seq_dict.items(), key=lambda item: item[1])
+            # print(nc_seq_dict)
+            # print(sorted_nc_seq_dict)
+            threshold = len(sorted_nc_seq_dict) - num_int_cores - cores + sum_core_rd
+            # print('Number of analyses whose cores are round up : {}'.format(threshold))
+            # sum_cores = 0
+            for sim_ana, time_seq in sorted_nc_seq_dict:
+                sim, ana = sim_ana.split('_')
                 ana_config = simulations_config[sim]['coupling'][ana]
-                core = bandwidth * cores * ana_config['time_seq']/(bandwidth * time_nc_sum + u - cores * data_size)
-                nc_seq_dict[sim + '_' + ana] = ana_config['time_seq']
+                core = ana_config['core_per_node']
                 if core.is_integer():
-                    num_int_cores += 1
-                sum_core_rd += math.floor(core)
-                ana_config['core_per_node'] = core
-                time_a = ana_config['time_seq'] / (round_nc_nodes * core)
-                time_a +=  data_size / (round_nc_nodes * bandwidth)
-                # ana_config['time_nr'] = time_a 
-        
-        # Heuristic to round c^{NC}: Round up c_A of analyses A with greater t(A)  
-        # Sort by analysis sequential time
-        sorted_nc_seq_dict = sorted(nc_seq_dict.items(), key=lambda item: item[1])
-        # print(nc_seq_dict)
-        # print(sorted_nc_seq_dict)
-        threshold = len(sorted_nc_seq_dict) - num_int_cores - cores + sum_core_rd
-        # print('Number of analyses whose cores are round up : {}'.format(threshold))
-        # sum_cores = 0
-        for sim_ana, time_seq in sorted_nc_seq_dict:
-            sim, ana = sim_ana.split('_')
-            ana_config = simulations_config[sim]['coupling'][ana]
-            core = ana_config['core_per_node']
-            if core.is_integer():
-                round_core = int(core)
-            else:
-                if core < 1: 
-                    round_core = math.ceil(core)
+                    round_core = int(core)
                 else:
-                    if threshold > 0:
-                        round_core = math.floor(core)
-                        threshold -= 1
-                    else:
+                    if core < 1: 
                         round_core = math.ceil(core)
-            # sum_cores += round_core
-            ana_config['core_per_node'] = round_core
-            # Compute execution time
-            time_a = ana_config['time_seq'] / (round_nc_nodes * round_core)
-            time_a +=  data_size / (round_nc_nodes * bandwidth)
-            ana_config['time'] = time_a
-            # print(sim, ana, core, round_core, time_a)
-        # print(f'Sum of cores : {sum_cores}')
-        if threshold > 0:
-            printf('Not sufficient resource for core allocation in non-co-scheduling')
-            config['unfeasible'] = []
-            # with open(output_file, 'w') as file:
-            #     yaml.dump(config, file)
-            return False
+                    else:
+                        if threshold > 0:
+                            round_core = math.floor(core)
+                            threshold -= 1
+                        else:
+                            round_core = math.ceil(core)
+                # sum_cores += round_core
+                ana_config['core_per_node'] = round_core
+                # Compute execution time
+                time_a = ana_config['time_seq'] / (round_nc_nodes * round_core)
+                time_a +=  data_size / (round_nc_nodes * bandwidth)
+                ana_config['time'] = time_a
+                # print(sim, ana, core, round_core, time_a)
+            # print(f'Sum of cores : {sum_cores}')
+            if threshold > 0:
+                print(f'Not sufficient resource for core allocation in non-co-scheduling')
+                config['unfeasible'] = []
+                # with open(output_file, 'w') as file:
+                #     yaml.dump(config, file)
+                return False
+        else:
+            num_nc_anas = 0
+            for sim in scheduling_config:
+                num_nc_anas += len(scheduling_config[sim])
+            even_cores = math.floor(cores / num_nc_anas)
+            num_anas_ru = cores - even_cores * num_nc_anas
+            num_anas_rd = num_nc_anas - num_anas_ru
+            for sim in scheduling_config:
+                data_size = simulations_config[sim]['data']
+                for ana in scheduling_config[sim]:
+                    ana_config = simulations_config[sim]['coupling'][ana]
+                    if num_anas_rd > 0:
+                        ana_config['core_per_node'] = even_cores
+                        num_anas_rd -= 1
+                    else: 
+                        ana_config['core_per_node'] = even_cores + 1
+                    time_a = ana_config['time_seq'] / (round_nc_nodes * ana_config['core_per_node'])
+                    time_a +=  data_size / (round_nc_nodes * bandwidth)
+                    ana_config['time'] = time_a
+            
 
     print('Number of nodes for non-co-scheduling : {}'.format(round_nc_nodes))
     # round_nc_nodes = nc_nodes
@@ -341,119 +548,152 @@ def allocate(output_file, round_up=True):
         
     # Co-scheduling
     config['allocations'] = {}
-    start_node = 0
-    c_seq_dict = {}
-    sum_c_nodes_rd = 0
-    num_int_nodes = 0
-    for sim in simulations_config:
-        # print(sim)
-        numerator = simulations_config[sim]['time_seq']
-        for ana in simulations_config[sim]['coupling']:
-            ana_config = simulations_config[sim]['coupling'][ana]
-            if ana not in scheduling_config[sim]:
-                numerator += ana_config['time_seq']
-        c_seq_dict[sim] = numerator
+    if node_heuristic == 'model':
+        c_seq_dict = {}
+        sum_c_nodes_rd = 0
+        num_int_nodes = 0
+        for sim in simulations_config:
+            # print(sim)
+            numerator = simulations_config[sim]['time_seq']
+            for ana in simulations_config[sim]['coupling']:
+                ana_config = simulations_config[sim]['coupling'][ana]
+                if ana not in scheduling_config[sim]:
+                    numerator += ana_config['time_seq']
+            c_seq_dict[sim] = numerator
+            simulations_config[sim]['time_sum'] = numerator
+            # Node allocation
+            node = numerator * c_nodes / (time_s_sum + time_c_sum)
+            if node.is_integer():
+                num_int_nodes += 1
+            sum_c_nodes_rd += math.floor(node)
+            config['allocations'][sim] = {}
+            config['allocations'][sim]['node'] = node
 
-        # Node allocation
-        node = numerator * c_nodes / (time_s_sum + time_c_sum)
-        if node.is_integer():
-            num_int_nodes += 1
-        sum_c_nodes_rd += math.floor(node)
-        config['allocations'][sim] = {}
-        config['allocations'][sim]['node'] = node
-
-    sorted_c_seq_dict = sorted(c_seq_dict.items(), key=lambda item: item[1])
-    # print(c_seq_dict)
-    # print(sorted_c_seq_dict)
-    threshold = len(sorted_c_seq_dict) - num_int_nodes - c_nodes + sum_c_nodes_rd
-    # print(threshold)
-    # sum_nodes = 0
-    for sim, numerator in sorted_c_seq_dict:
-        node = config['allocations'][sim]['node']
-        if node.is_integer():
-            round_node = int(node)
-        else: 
-            if node < 1:
-                round_node = math.ceil(node)
-            else:
-                if threshold > 0:
-                    round_node = math.floor(node)
-                    threshold -= 1
-                else:
+        sorted_c_seq_dict = sorted(c_seq_dict.items(), key=lambda item: item[1])
+        # print(c_seq_dict)
+        # print(sorted_c_seq_dict)
+        threshold = len(sorted_c_seq_dict) - num_int_nodes - c_nodes + sum_c_nodes_rd
+        # print(threshold)
+        # sum_nodes = 0
+        for sim, numerator in sorted_c_seq_dict:
+            node = config['allocations'][sim]['node']
+            if node.is_integer():
+                round_node = int(node)
+            else: 
+                if node < 1:
                     round_node = math.ceil(node)
-        # sum_nodes += round_node
-        config['allocations'][sim]['node'] = round_node
-        # config['allocations'][sim]['node_nr'] = node
-        # print(sim, node, round_node)  
-
-        num_int_cores = 0
-        core = simulations_config[sim]['time_seq'] * cores / numerator
-        simulations_config[sim]['core_per_node'] = core
-        if core.is_integer():
-            num_int_cores += 1
-        sim_seq_dict = {}
-        sim_seq_dict[sim + '_'] = (simulations_config[sim]['time_seq'],core)
-        # Core allocation
-        sum_sim_rd = math.floor(core)
-        for ana in simulations_config[sim]['coupling']:
-            ana_config = simulations_config[sim]['coupling'][ana]
-            if ana not in scheduling_config[sim]:
-                core = ana_config['time_seq'] * cores / numerator
-                if core.is_integer():
-                    num_int_cores += 1
-                sum_sim_rd += math.floor(core)
-                ana_config['core_per_node'] = core
-                sim_seq_dict[sim + '_' + ana] = (ana_config['time_seq'],core)
-                
-        # print(sim_seq_dict.items())
-        sorted_sim_seq_dict = sorted(sim_seq_dict.items(), key=lambda item: item[1][0])
-        # print(sorted_sim_seq_dict)
-        sub_threshold = len(sorted_sim_seq_dict) - num_int_cores - cores + sum_sim_rd 
-        # print(sub_threshold)
-        # sum_sub_cores = 0
-        for sim_ana, time_seq in sorted_sim_seq_dict:
-            sim, ana = sim_ana.split('_')
-            # print(sim, ana)
-            core = time_seq[1]
-            if not ana:
-                core_per_node = simulations_config[sim] 
-                # core = simulations_config[sim]['core_per_node']
-            else:
-                core_per_node = simulations_config[sim]['coupling'][ana]
-                # core = simulations_config[sim]['coupling'][ana]['core_per_node']
-            if core.is_integer():
-                round_core = int(core)
-            else:
-                if core < 1:
-                    round_core = math.ceil(core)
                 else:
-                    if sub_threshold > 0:
-                        round_core = math.floor(core)
-                        sub_threshold -= 1
-                    else:   
-                        round_core = math.ceil(core)
-            # print(sub_threshold)
-            
-            # sum_sub_cores += round_core
-            core_per_node['core_per_node'] = round_core
-            core_per_node['time'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * round_core)
-            # core_per_node['time_nrc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * core)
-            # core_per_node['time_nrnc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node_nr'] * core)
-        # print(f'Sum of cores of allocation {sim}: {sum_sub_cores}')
-        if sub_threshold > 0:
-            print(f'Not sufficient resource for core allocations in co-scheduling')
+                    if threshold > 0:
+                        round_node = math.floor(node)
+                        threshold -= 1
+                    else:
+                        round_node = math.ceil(node)
+            # sum_nodes += round_node
+            config['allocations'][sim]['node'] = round_node
+            # config['allocations'][sim]['node_nr'] = node
+            # print(sim, node, round_node)  
+        # print('Sum of nodes: {}'.format(sum_nodes))
+        if threshold > 0:
+            print(f'Not sufficient resource for node allocation in co-scheduling')
             config['unfeasible'] = []
             # with open(output_file, 'w') as file:
             #     yaml.dump(config, file)
             return False
+    else:
+        # node_heuristic == 'even'
+        even_nodes = math.floor(c_nodes / num_sims)
+        num_allocs_ru = c_nodes - even_nodes * num_sims
+        num_allocs_rd = num_sims - num_allocs_ru
+        for sim in simulations_config:
+            config['allocations'][sim] = {}
+            if num_allocs_rd > 0:
+                config['allocations'][sim]['node'] = even_nodes
+                num_allocs_rd -= 1
+            else:
+                config['allocations'][sim]['node'] = even_nodes + 1
 
-    # print('Sum of nodes: {}'.format(sum_nodes))
-    if threshold > 0:
-        print(f'Not sufficient resource for node allocation in co-scheduling')
-        config['unfeasible'] = []
-        # with open(output_file, 'w') as file:
-        #     yaml.dump(config, file)
-        return False
+    if core_heuristic == 'model':
+        for sim in simulations_config:
+            num_int_cores = 0
+            numerator = simulations_config[sim]['time_sum']
+            core = simulations_config[sim]['time_seq'] * cores / numerator
+            simulations_config[sim]['core_per_node'] = core
+            if core.is_integer():
+                num_int_cores += 1
+            sim_seq_dict = {}
+            sim_seq_dict[sim + '_'] = (simulations_config[sim]['time_seq'],core)
+            # Core allocation
+            sum_sim_rd = math.floor(core)
+            for ana in simulations_config[sim]['coupling']:
+                ana_config = simulations_config[sim]['coupling'][ana]
+                if ana not in scheduling_config[sim]:
+                    core = ana_config['time_seq'] * cores / numerator
+                    if core.is_integer():
+                        num_int_cores += 1
+                    sum_sim_rd += math.floor(core)
+                    ana_config['core_per_node'] = core
+                    sim_seq_dict[sim + '_' + ana] = (ana_config['time_seq'],core)
+                    
+            # print(sim_seq_dict.items())
+            sorted_sim_seq_dict = sorted(sim_seq_dict.items(), key=lambda item: item[1][0])
+            # print(sorted_sim_seq_dict)
+            sub_threshold = len(sorted_sim_seq_dict) - num_int_cores - cores + sum_sim_rd 
+            # print(sub_threshold)
+            # sum_sub_cores = 0
+            for sim_ana, time_seq in sorted_sim_seq_dict:
+                sim, ana = sim_ana.split('_')
+                # print(sim, ana)
+                core = time_seq[1]
+                if not ana:
+                    core_per_node = simulations_config[sim] 
+                    # core = simulations_config[sim]['core_per_node']
+                else:
+                    core_per_node = simulations_config[sim]['coupling'][ana]
+                    # core = simulations_config[sim]['coupling'][ana]['core_per_node']
+                if core.is_integer():
+                    round_core = int(core)
+                else:
+                    if core < 1:
+                        round_core = math.ceil(core)
+                    else:
+                        if sub_threshold > 0:
+                            round_core = math.floor(core)
+                            sub_threshold -= 1
+                        else:   
+                            round_core = math.ceil(core)
+                # print(sub_threshold)
+                
+                # sum_sub_cores += round_core
+                core_per_node['core_per_node'] = round_core
+                core_per_node['time'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * round_core)
+                # core_per_node['time_nrc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * core)
+                # core_per_node['time_nrnc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node_nr'] * core)
+            # print(f'Sum of cores of allocation {sim}: {sum_sub_cores}')
+            if sub_threshold > 0:
+                print(f'Not sufficient resource for core allocations in co-scheduling')
+                config['unfeasible'] = []
+                # with open(output_file, 'w') as file:
+                #     yaml.dump(config, file)
+                return False
+    else:
+        # core_heuristic == 'even'
+        for sim in simulations_config:
+            num_comps = 1 + len(simulations_config[sim]['coupling'].keys()) - len(scheduling_config[sim])
+            # print(f'num_comps of {sim} = {num_comps}')
+            even_cores = math.floor(cores / num_comps)
+            num_comps_ru = cores - even_cores * num_comps
+            num_comps_rd = num_comps - num_comps_ru - 1
+            simulations_config[sim]['core_per_node'] = even_cores
+            simulations_config[sim]['time'] = simulations_config[sim]['time_seq'] / (config['allocations'][sim]['node'] * even_cores)
+            for ana in simulations_config[sim]['coupling']:
+                ana_config = simulations_config[sim]['coupling'][ana]
+                if ana not in scheduling_config[sim]:
+                    if num_comps_rd > 0:
+                        ana_config['core_per_node'] = even_cores
+                        num_comps_rd -= 1
+                    else:
+                        ana_config['core_per_node'] = even_cores + 1
+                    ana_config['time'] = ana_config['time_seq'] / (config['allocations'][ana_config['alloc']]['node'] * ana_config['core_per_node'])
 
     start_node = 0
     for sim in simulations_config:
@@ -591,7 +831,7 @@ def test(cosched_config):
             with open('log.test', 'w') as file:
                 yaml.dump(config, file)
 
-def coschedule(output_file, heuristic='ideal', ratio=None):
+def coschedule(heuristic='ideal', ratio=None, near=False):
     config['non-co-scheduling'] = {}
     for sim in simulations_config:
         config['non-co-scheduling'][sim] = []
@@ -618,25 +858,37 @@ def coschedule(output_file, heuristic='ideal', ratio=None):
         for sim,ana in picked_anas:
             config['non-co-scheduling'][sim].append(ana)
 
-    if allocate(None):
-        print('Feasible to allocate')
-        print(f'Makespan: {config["makespan"]}')
-        with open(output_file, 'w') as file:
-            yaml.dump(config, file)
+    output_file = heuristic
+    if ratio: 
+        output_file += str(ratio)
+    heuristics = ['model','even']
+    for node_heuristic in heuristics:
+        for core_heuristic in heuristics:
+            print(f'node_heuristic = {node_heuristic}, core_heuristic = {core_heuristic}')
+            if allocate(f'{output_file}_{node_heuristic}_{core_heuristic}.conf', node_heuristic=node_heuristic, core_heuristic=core_heuristic):
+                print('Feasible to allocate')
+                print(f'Makespan: {config["makespan"]}')
+                # with open(output_file, 'w') as file:
+                #     yaml.dump(config, file)
+            if near:
+                output_file += 'near'
+                if near_allocate(output_file + '.conf'):
+                    print(f'Feasible to near allocate')
 
 if __name__ == "__main__":
     # heuristic('increasing')
     # cosched_config = {'sim1': ['ana8', 'ana7'], 'sim2': ['ana1', 'ana2'], 'sim3': []}
     # test(cosched_config)
-    heuristics = ['ideal', 'transit', 'increasing', 'decreasing']
+
+    heuristics = ['ideal', 'increasing', 'decreasing', 'transit']
     ratios = [0.25, 0.5, 0.75]
     for heuristic in heuristics:
         if heuristic in ['increasing', 'decreasing']:
             for ratio in ratios:
                 print(f'{heuristic} {ratio}')
-                coschedule(f'{heuristic}{ratio}.conf', heuristic, ratio)
+                coschedule(heuristic, ratio, near=False)
         else:
             print(f'{heuristic}')
-            coschedule(f'{heuristic}.conf', heuristic)
+            coschedule(heuristic, near=False)
     print('\n')
     
