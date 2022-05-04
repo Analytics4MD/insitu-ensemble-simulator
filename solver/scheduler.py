@@ -401,6 +401,8 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
 
     num_sims = len(simulations_config.keys())
     round_nc_nodes = 0
+    config['allocations'] = {}
+    config['allocations']['sim0'] = {}
     if not ideal_sched:
         print('not ideal scheduling')
         # Solve Equation 25
@@ -419,6 +421,7 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
             # Compute n^{NC}
             time_sum = time_s_sum + time_c_sum + time_nc_sum
             nc_nodes = nodes * (bandwidth * time_nc_sum + u) / (bandwidth * time_sum + u)
+            config['allocations']['sim0']['node_nr'] = nc_nodes
             round_nc_nodes = math.ceil(nc_nodes)
             if nc_nodes > nodes-1:
                 print(f'Cannot round up num_nodes for non-co-scheduling to {nodes}')
@@ -501,6 +504,7 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
                             round_core = math.ceil(core)
                 # sum_cores += round_core
                 ana_config['core_per_node'] = round_core
+                ana_config['core_per_node_nr'] = core
                 # Compute execution time
                 time_a = ana_config['time_seq'] / (round_nc_nodes * round_core)
                 time_a +=  data_size / (round_nc_nodes * bandwidth)
@@ -547,7 +551,7 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
         return False
         
     # Co-scheduling
-    config['allocations'] = {}
+    
     if node_heuristic == 'model':
         c_seq_dict = {}
         sum_c_nodes_rd = 0
@@ -590,6 +594,7 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
                         round_node = math.ceil(node)
             # sum_nodes += round_node
             config['allocations'][sim]['node'] = round_node
+            config['allocations'][sim]['node_nr'] = node
             # config['allocations'][sim]['node_nr'] = node
             # print(sim, node, round_node)  
         # print('Sum of nodes: {}'.format(sum_nodes))
@@ -665,6 +670,7 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
                 
                 # sum_sub_cores += round_core
                 core_per_node['core_per_node'] = round_core
+                core_per_node['core_per_node_nr'] = core
                 core_per_node['time'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * round_core)
                 # core_per_node['time_nrc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node'] * core)
                 # core_per_node['time_nrnc'] = core_per_node['time_seq'] / (config['allocations'][core_per_node['alloc']]['node_nr'] * core)
@@ -705,7 +711,7 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
             allocation_config['end'] = start_node - 1
 
     # Need to fix start and end node when rounding heristic is finalized
-    config['allocations']['sim0'] = {}
+    # config['allocations']['sim0'] = {}
     config['allocations']['sim0']['node'] = round_nc_nodes
     if round_nc_nodes > 0:
         config['allocations']['sim0']['start'] = start_node
