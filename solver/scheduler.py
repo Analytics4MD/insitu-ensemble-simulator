@@ -23,14 +23,14 @@ speed = config['speed']
 # Number of cores per node
 cores = config['cores']
 # Memory bandwidth per node (GB/s)
-bandwidth = config['bandwidth']
+bandwidth_global = config['bandwidth']
 # Number of nodes
 nodes = config['nodes']
 # Memory capacity per node (GB)
 mem = config['memory']
 print('Number of nodes : {}'.format(nodes))
 print('Number of cores per node : {}'.format(cores))
-print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth))
+print('Memory bandwidth per node (GB/s) : {}'.format(bandwidth_global))
 print('Computational power per core (GFLOPs) : {}'.format(speed))
 print('Memory capacity per node (GB) : {}'.format(mem))
 
@@ -376,15 +376,18 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
         if len(scheduling_config[sim]):
             ideal_sched = False
             break 
-        
+    
+    
     # t(P^NC)
     time_nc_sum = 0
     # t(S)
     time_s_sum = 0
     # t(P^C)
     time_c_sum = 0
+    num_nc_anas = 0
     # Compute t(S), t(P^C), t(P^NC)
     for sim in scheduling_config:
+        num_nc_anas += len(scheduling_config[sim])
         time_s_seq = simulations_config[sim]['time_seq']
         time_s_sum += time_s_seq
         simulations_config[sim]['alloc'] = sim
@@ -399,12 +402,18 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
                 ana_config['alloc'] = sim
                 time_c_sum += time_a_seq
 
+    bandwidth = bandwidth_global
     num_sims = len(simulations_config.keys())
     round_nc_nodes = 0
     config['allocations'] = {}
     config['allocations']['sim0'] = {}
     if not ideal_sched:
         print('not ideal scheduling')
+        bandwidths = {}
+        bandwidths[1] = bandwidth / num_nc_anas
+        bandwidths[2] = bandwidth * (time_s_sum + time_c_sum + time_nc_sum) / (time_nc_sum * nodes)
+        bandwidths[3] = bandwidth * (time_s_sum + time_c_sum + time_nc_sum) / (time_nc_sum * nodes * num_nc_anas)
+        # bandwidth = bandwidth_global * (time_s_sum + time_c_sum + time_nc_sum) / (time_nc_sum * nodes * num_nc_anas) 
         # Solve Equation 25
         equation = - 1/bandwidth
         for sim in scheduling_config:
@@ -507,8 +516,10 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
                 ana_config['core_per_node_nr'] = core
                 # Compute execution time
                 time_a = ana_config['time_seq'] / (round_nc_nodes * round_core)
-                time_a +=  data_size / (round_nc_nodes * bandwidth)
-                ana_config['time'] = time_a
+                ana_config['time'] = time_a + data_size / (round_nc_nodes * bandwidth)
+                for k in bandwidths: 
+                    # bandwidth_bw = bandwidth * (time_s_sum + time_c_sum + time_nc_sum) / (time_nc_sum * nodes * num_nc_anas)
+                    ana_config['time_' + str(k)] = time_a + data_size / (round_nc_nodes * bandwidths[k] )
                 # print(sim, ana, core, round_core, time_a)
             # print(f'Sum of cores : {sum_cores}')
             if threshold > 0:
@@ -534,8 +545,11 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
                     else: 
                         ana_config['core_per_node'] = even_cores + 1
                     time_a = ana_config['time_seq'] / (round_nc_nodes * ana_config['core_per_node'])
-                    time_a +=  data_size / (round_nc_nodes * bandwidth)
-                    ana_config['time'] = time_a
+                    ana_config['time'] = time_a + data_size / (round_nc_nodes * bandwidth)
+                    for k in bandwidths:
+                        # bandwidth_bw = bandwidth * (time_s_sum + time_c_sum + time_nc_sum) / (time_nc_sum * nodes * num_nc_anas)
+                        ana_config['time_' + str(k)] = time_a + data_size / (round_nc_nodes * bandwidths[k] )
+
             
 
     print('Number of nodes for non-co-scheduling : {}'.format(round_nc_nodes))
@@ -719,12 +733,16 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
 
     # # Execution time and makespan
     makespan = float('-inf')
+    makespans = {k:float('-inf') for k in [1,2,3]}
     for sim in simulations_config:
     #     time_s = simulations_config[sim]['time_seq'] / (config['allocations'][sim]['node'] * simulations_config[sim]['core_per_node'])
         time_s = simulations_config[sim]['time']
     #     data_size = simulations_config[sim]['data']
         if time_s > makespan:
             makespan = time_s
+        for k in makespans:
+            if time_s > makespans[k]:
+                makespans[k] = time_s
         for ana in simulations_config[sim]['coupling']:
             ana_config = simulations_config[sim]['coupling'][ana]
     #         ana_alloc = ana_config['alloc']
@@ -734,7 +752,15 @@ def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic=
             time_a = ana_config['time']
             if time_a > makespan:
                 makespan = time_a
+            for k in makespans:
+                if 'time_' + str(k) in ana_config:
+                    time_a = ana_config['time_' + str(k)]
+                if time_a > makespans[k]:
+                    makespans[k] = time_a
+            
     config['makespan'] = makespan * config['steps']
+    for k in makespans:
+        config['makespan_' + str(k)] = makespans[k] * config['steps']
 
     # print(simulations_config)
     if output_file:
