@@ -18,7 +18,7 @@ do
         # cp ${scenario}_${heuristic}.conf ${scenario}_${heuristic}.conf.bak
         # mv ${scenario}_${heuristic}.log ${scenario}_${heuristic}.log.bak
         # mv ${scenario}_${heuristic}.err ${scenario}_${heuristic}.err.bak
-        echo "Simulating ${scenario} case ..."
-        ./insitu-ensemble-simulator ${scenario}_${heuristic}.conf platform.xml 1> ${scenario}_${heuristic}.log 2> ${scenario}_${heuristic}.err &
+        echo "Simulating ${scenario}_${heuristic} case ..."
+        ./insitu-ensemble-simulator ${scenario}_${heuristic}.conf platform.xml --wrench-mailbox-pool-size=50000 1> ${scenario}_${heuristic}.log 2> ${scenario}_${heuristic}.err &
     done
 done
