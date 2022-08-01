@@ -33,6 +33,15 @@ make install
 ```
 
 ## Run
+Generate platform file and general ensemble's structure
 ```
-./insitu-ensemble-simulator <yaml config file> <xml platform file>
+python3 <name of output config file (yml)> <name of output platform file (xml)>
+```
+Specify co-scheduling mapping and compute resource allocation according to a particular scenario, e.g. ideal, transit
+```
+python3 <config file> <scenario>
+```
+Run the simulation
+```
+./insitu-ensemble-simulator <config file> <platform file>
 ```
