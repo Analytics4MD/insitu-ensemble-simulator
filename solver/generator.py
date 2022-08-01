@@ -6,13 +6,26 @@ from lxml import etree
 from io import StringIO
 import sys
 
+# Name of generated config file
 config_file = sys.argv[1]
+# Name of generated platform file
 platform_file = sys.argv[2]
-num_nodes = 16
-num_simulations = 4
+
+# Ensemble settings
+num_nodes = 2
+num_simulations = 1
 # num_analyses_per_simulation = random.randint(1, 3)
-num_analyses_per_simulation = 32
+num_analyses_per_simulation = 2
+
+# Applications' profile
 num_steps = 100
+# sim_flop = round(random.uniform(500, 1000), 3)
+sim_flop = 5000.00 
+# data_size = round(random.uniform(1, 10), 2)
+data_size = 4
+diff_flop = 0.5
+
+# Plaform configurations
 compute_speed = 36.8
 num_cores = 128
 read_bandwidth = 100
@@ -23,11 +36,6 @@ shared_bandwidth = 6
 shared_latency = 0
 loopback_bandwidth = 1000
 loopback_latency = 0
-# sim_flop = round(random.uniform(500, 1000), 3)
-sim_flop = 5000.00 
-# data_size = round(random.uniform(1, 10), 2)
-data_size = 4
-diff_flop = 0.5
 
 compute_speed_str = str(compute_speed) + 'Gf'
 num_cores_str = str(num_cores)
@@ -42,6 +50,15 @@ loopback_bandwidth_str = str(loopback_bandwidth) + 'GBps'
 loopback_latency_str = str(loopback_latency) + 'us'
 
 def config_generator(config_file):
+    """
+    Generate YAML file that contains general structure of ensemble
+        
+    Args:
+        config_file: Name of output yaml config file
+
+    Returns: 
+
+    """ 
     config = {}
     config['nodes'] = num_nodes
     config['cores'] = num_cores
@@ -72,6 +89,15 @@ def config_generator(config_file):
         yaml.dump(config, file)
 
 def platform_generator(platform_file):
+    """
+    Generate XML platform file
+        
+    Args:
+        platform_file: Name of output xml platform file
+
+    Returns: 
+
+    """ 
     doctype_string = '<!DOCTYPE platform SYSTEM "https://simgrid.org/simgrid.dtd">'
     xml_header = '<?xml version="1.0"?>'
     xhtml = xml_header + doctype_string + '<platform version="4.1"></platform>'
@@ -116,5 +142,7 @@ def platform_generator(platform_file):
         tree.write(doc, pretty_print=True, xml_declaration=True, encoding='utf-8')
 
 if __name__ == "__main__":
+    # Generate config file
     platform_generator(platform_file)
+    # Generate platform file
     config_generator(config_file)
