@@ -12,8 +12,12 @@ An experimental simulator for workflow ensembles of simulations and in situ anal
 - [SimGrid](https://simgrid.org/)
 - [WRENCH](https://wrench-project.org/)
 - [yaml-cpp](https://github.com/jbeder/yaml-cpp)
+- [SymPy](https://www.sympy.org)
+- [lxml](https://lxml.de)
 
 ## Installation
+
+Please disable SMPI feature `-Denable_smpi=off` when installing SimGrid to avoid trouble later
 
 ```
 mkdir build
@@ -30,5 +34,5 @@ make install
 
 ## Run
 ```
-./insitu-ensemble-simulator <number of compute nodes> <yaml config file> <xml platform file>
+./insitu-ensemble-simulator <yaml config file> <xml platform file>
 ```
