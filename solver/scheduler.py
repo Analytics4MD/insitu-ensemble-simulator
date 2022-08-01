@@ -52,13 +52,18 @@ track = 0
 
 def schedule(output_file, heuristic="increasing"):
     """
-    Returns: True if it is feasible to continue co-scheduling, False otherwise.
     Continuously co-schedules simulations and analyses following given heuristic.
         
-    Parameter config_file:
-    Parameter output_file:
-    Parameter heuristic: either 'increasing', 'decreasing', 'random', or 'brute-force'
+    Args:
+        output_file:
+        heuristic: either 'increasing', 'decreasing', 'random', or 'brute-force'
+    
+    Returns: 
+        True if it is feasible to continue co-scheduling
+        False otherwise.
+
     """ 
+
     # with open(config_file, 'r') as file:
     #     config = yaml.safe_load(file)
     global track
@@ -338,13 +343,20 @@ def near_allocate(output_file):
 
 def allocate(output_file, round_up=True, node_heuristic='model', core_heuristic='model'):
     """
-    Returns: True if it is feasible to compute integer resource allocation. Otherwise, False.
-
     Compute the resource allocation for each simulation and analysis.
         
-    Parameter config_file:
-    Parameter output_file:
+    Args:
+        output_file:
+        round_up:
+        node_heuristic:
+        core_heuristic:
+
+    Returns: 
+        True if it is feasible to compute integer resource allocation
+        Otherwise, False.
+
     """ 
+
     # with open(config_file, 'r') as file:
     #     config = yaml.safe_load(file)
 
@@ -778,6 +790,7 @@ def feasible(output_file):
     Parameter config_file:
     Parameter output_file:
     """ 
+
     # with open(config_file, 'r') as file:
     #     config = yaml.safe_load(file)
     # simulations_config = config['simulations']
@@ -863,13 +876,26 @@ def test(cosched_config):
             with open('log.test', 'w') as file:
                 yaml.dump(config, file)
 
-def coschedule(heuristic='ideal', ratio=None, near=False):
+def coschedule(scenario='ideal', ratio=None, heuristics=['model'], near=False):
+    """
+    Generate full configurations for a co-scheduling scenario
+        
+    Args:
+        scenario:
+        ratio:
+        heuristics:
+        near:
+
+    Returns: 
+
+    """ 
+
     config['non-co-scheduling'] = {}
     for sim in simulations_config:
         config['non-co-scheduling'][sim] = []
-    if heuristic != 'ideal':
-        if (heuristic == 'increasing' or heuristic == 'decreasing') and ratio is None:
-            print(f'Please specify the ratio for {heuristic}')
+    if scenario != 'ideal':
+        if (scenario == 'increasing' or scenario == 'decreasing') and ratio is None:
+            print(f'Please specify the ratio for {scenario}')
             return    
         anas = []
         for sim in simulations_config:
@@ -877,23 +903,23 @@ def coschedule(heuristic='ideal', ratio=None, near=False):
                 ana_config = simulations_config[sim]['coupling'][ana]
                 anas.append((sim, ana))
         # print(anas)
-        if heuristic == 'transit':
+        if scenario == 'transit':
             picked_anas = anas
-        if heuristic == 'increasing':
-            k = int(len(anas) * ratio)
+        if scenario == 'increasing':
+            k = int(len(anas) * float(ratio))
             picked_anas = sorted(anas, key=lambda x: simulations_config[x[0]]['coupling'][x[1]]['flop'])[:k]
             
-        if heuristic == 'decreasing':
-            k = int(len(anas) * ratio)
+        if scenario == 'decreasing':
+            k = int(len(anas) * float(ratio))
             picked_anas = sorted(anas, key=lambda x: simulations_config[x[0]]['coupling'][x[1]]['flop'], reverse=True)[:k]
         
         for sim,ana in picked_anas:
             config['non-co-scheduling'][sim].append(ana)
 
-    output_file = heuristic
+    output_file = scenario
     if ratio: 
-        output_file += str(ratio)
-    heuristics = ['model','even']
+        output_file += ratio
+    # heuristics = ['model','even']
     for node_heuristic in heuristics:
         for core_heuristic in heuristics:
             print(f'node_heuristic = {node_heuristic}, core_heuristic = {core_heuristic}')
@@ -907,20 +933,35 @@ def coschedule(heuristic='ideal', ratio=None, near=False):
                 if near_allocate(output_file + '.conf'):
                     print(f'Feasible to near allocate')
 
-if __name__ == "__main__":
-    # heuristic('increasing')
-    # cosched_config = {'sim1': ['ana8', 'ana7'], 'sim2': ['ana1', 'ana2'], 'sim3': []}
-    # test(cosched_config)
+def schedule():
+    """
+    Schedule various co-scheduling scenarios
+        
+    Args: 
 
-    heuristics = ['ideal', 'increasing', 'decreasing', 'transit']
+    Returns: 
+
+    """ 
+    scenarios = ['ideal', 'increasing', 'decreasing', 'transit']
     ratios = [0.25, 0.5, 0.75]
-    for heuristic in heuristics:
-        if heuristic in ['increasing', 'decreasing']:
+    heuristics = ['model', 'even']
+    for scenario in scenarios:
+        if scenario in ['increasing', 'decreasing']:
             for ratio in ratios:
-                print(f'{heuristic} {ratio}')
-                coschedule(heuristic, ratio, near=False)
+                print(f'{scenario} {ratio}')
+                coschedule(scenario, ratio, heuristics=heuristics)
         else:
-            print(f'{heuristic}')
-            coschedule(heuristic, near=False)
+            print(f'{scenario}')
+            coschedule(scenario, heuristics=heuristics)
     print('\n')
+
+if __name__ == "__main__":
+    # schedule
+    if len(sys.argv) == 3:
+        coschedule(sys.argv[2])
+    elif len(sys.argv) == 4:
+        coschedule(sys.argv[2], sys.argv[3])
+    else:
+        print('python3 scheduler.py <config yaml> <scenario> <ratio> (optional)>')
+        sys.exit()
     
