@@ -1,6 +1,6 @@
 
 <h1 align="center">  
-  A4MD-insitu-ensemble-simulator
+  insitu-ensemble-simulator
 </h1>
 
 ## About
