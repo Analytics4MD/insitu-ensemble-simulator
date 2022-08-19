@@ -31,15 +31,16 @@ cmake .. \
 make
 make install
 ```
+This command will generate an executable `insitu-ensemble-simulator` for the simulator.
 
 ## Run
 Generate platform file and general ensemble's structure
 ```
-python3 <name of output config file (yml)> <name of output platform file (xml)>
+python3 solver/generator.py <name of output config file (yml)> <name of output platform file (xml)>
 ```
 Specify co-scheduling mapping and compute resource allocation according to a particular scenario, e.g. ideal, transit
 ```
-python3 <config file> <scenario>
+python3 solver/scheduler.py <config file> <scenario>
 ```
 Run the simulation
 ```
